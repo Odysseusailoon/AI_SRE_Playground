@@ -117,10 +117,15 @@ class GPTClient:
             if cache_result is not None:
                 return cache_result
 
+        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        base_url = os.getenv("OPENROUTER_BASE_URL", "https://api.openai.com/v1")
+        model = os.getenv("OPENROUTER_MODEL", "gpt-4-turbo-2024-04-09")
+
+        client = OpenAI(api_key=api_key, base_url=base_url)
         try:
             response = self.client.chat.completions.create(
                 messages=payload,  # type: ignore
-                model=GPT_MODEL,
+                model=model,
                 max_tokens=1024,
                 temperature=0.5,
                 top_p=0.95,
