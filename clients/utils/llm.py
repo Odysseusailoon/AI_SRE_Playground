@@ -1,37 +1,21 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-"""A common abstraction for a cached LLM inference setup. Currently supports OpenAI's gpt-4-turbo and other models."""
+"""An common abstraction for a cached LLM inference setup. Currently supports OpenAI's gpt-4-turbo and other models."""
 
 
 import os
-import json
-import yaml
+from openai import OpenAI
 from groq import Groq
 from pathlib import Path
-from typing import Optional, List, Dict
-from dataclasses import dataclass
-
-from groq import Groq
-from openai import OpenAI, AzureOpenAI
-from azure.identity import get_bearer_token_provider, AzureCliCredential, ManagedIdentityCredential
-
+import json
 from dotenv import load_dotenv
 
 # Load environment variables from the .env file
 load_dotenv()
-"""An common abstraction for a cached LLM inference setup. Currently supports OpenAI's gpt-4-turbo and other models."""
-
 
 CACHE_DIR = Path("./cache_dir")
 CACHE_PATH = CACHE_DIR / "cache.json"
-GPT_MODEL = "gpt-4o"
-
-
-@dataclass
-class AzureConfig:
-    azure_endpoint: str
-    api_version: str
 
 
 class Cache:
@@ -86,7 +70,7 @@ class GPTClient:
         try:
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
-                model=model,
+                model="gpt-4-turbo-2024-04-09",
                 max_tokens=1024,
                 temperature=0.5,
                 top_p=0.95,
@@ -149,31 +133,27 @@ class DeepSeekClient:
 class QwenClient:
     """Abstraction for Qwen's model. Some Qwen models only support streaming output."""
 
-    def __init__(self,
-                 model="qwen-plus",
-                 max_tokens=1024,
-                 is_stream=True):
+    def __init__(self):
         self.cache = Cache()
-        self.model = os.getenv("QWEN_MODEL", model)
-        self.max_tokens = os.getenv("QWEN_MAX_TOKEN", max_tokens)
-        self.is_stream = os.getenv("QWEN_IS_STREAM", is_stream)
 
     def inference(self, payload: list[dict[str, str]]) -> list[str]:
         if self.cache is not None:
             cache_result = self.cache.get_from_cache(payload)
             if cache_result is not None:
                 return cache_result
+
         client = OpenAI(api_key=os.getenv("DASHSCOPE_API_KEY"),
                         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
         try:
+            # TODO: Add constraints for the input context length
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
-                model=self.model,
-                max_tokens=self.max_tokens,
-                n=1,  # The response count to generate
+                model="qwq-32b",
+                max_tokens=1024,
+                n=1,
                 timeout=60,
                 stop=[],
-                stream=self.is_stream
+                stream=True
             )
         except Exception as e:
             print(f"Exception: {repr(e)}")
@@ -236,50 +216,6 @@ class vLLMClient:
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
                 top_p=self.top_p,
-                frequency_penalty=0.0,
-                presence_penalty=0.0,
-                n=1,
-                timeout=60,
-                stop=[],
-            )
-        except Exception as e:
-            print(f"Exception: {repr(e)}")
-            raise e
-
-        return [c.message.content for c in response.choices]  # type: ignore
-
-    def run(self, payload: list[dict[str, str]]) -> list[str]:
-        response = self.inference(payload)
-        if self.cache is not None:
-            self.cache.add_to_cache(payload, response)
-            self.cache.save_cache()
-        return response
-
-
-class OpenRouterClient:
-    """Abstraction for OpenRouter API with support for multiple models."""
-
-    def __init__(self, model="anthropic/claude-3.5-sonnet"):
-        self.cache = Cache()
-        self.model = model
-
-    def inference(self, payload: list[dict[str, str]]) -> list[str]:
-        if self.cache is not None:
-            cache_result = self.cache.get_from_cache(payload)
-            if cache_result is not None:
-                return cache_result
-
-        client = OpenAI(
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-            base_url="https://openrouter.ai/api/v1"
-        )
-        try:
-            response = client.chat.completions.create(
-                messages=payload,  # type: ignore
-                model=self.model,
-                max_tokens=1024,
-                temperature=0.5,
-                top_p=0.95,
                 frequency_penalty=0.0,
                 presence_penalty=0.0,
                 n=1,
