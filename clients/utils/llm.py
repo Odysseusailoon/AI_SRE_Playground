@@ -65,12 +65,12 @@ class GPTClient:
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENROUTER_BASE_URL", "https://api.openai.com/v1")
         model = os.getenv("OPENROUTER_MODEL", "gpt-4-turbo-2024-04-09")
-
+        
         client = OpenAI(api_key=api_key, base_url=base_url)
         try:
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
-                model="gpt-4-turbo-2024-04-09",
+                model=model,
                 max_tokens=1024,
                 temperature=0.5,
                 top_p=0.95,
@@ -139,17 +139,19 @@ class QwenClient:
                  is_stream=True):
         self.cache = Cache()
         self.model = os.getenv("QWEN_MODEL", model)
-        self.max_tokens = os.getenv("QWEN_MAX_TOKEN", max_tokens)
-        self.is_stream = os.getenv("QWEN_IS_STREAM", is_stream)
+        self.max_tokens = max_tokens
+        self.is_stream = is_stream
 
     def inference(self, payload: list[dict[str, str]]) -> list[str]:
         if self.cache is not None:
             cache_result = self.cache.get_from_cache(payload)
             if cache_result is not None:
                 return cache_result
+        print("using model: ", self.model)
         client = OpenAI(api_key=os.getenv("DASHSCOPE_API_KEY"),
                         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
         try:
+            # TODO: Add constraints for the input context length
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
                 model=self.model,
