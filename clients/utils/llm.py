@@ -20,8 +20,6 @@ from dotenv import load_dotenv
 
 # Load environment variables from the .env file
 load_dotenv()
-"""An common abstraction for a cached LLM inference setup. Currently supports OpenAI's gpt-4-turbo and other models."""
-
 
 CACHE_DIR = Path("./cache_dir")
 CACHE_PATH = CACHE_DIR / "cache.json"
@@ -68,7 +66,7 @@ class Cache:
 class GPTClient:
     """Abstraction for OpenAI's GPT series model."""
 
-    def __init__(self, auth_type: str = "key", api_key: Optional[str] = None, azure_config_file: Optional[str] = None, use_cache: bool = True):
+    def __init__(self):
         self.cache = Cache()
 
     def inference(self, payload: list[dict[str, str]]) -> list[str]:
@@ -80,7 +78,7 @@ class GPTClient:
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENROUTER_BASE_URL", "https://api.openai.com/v1")
         model = os.getenv("OPENROUTER_MODEL", "gpt-4-turbo-2024-04-09")
-
+        
         client = OpenAI(api_key=api_key, base_url=base_url)
         try:
             response = client.chat.completions.create(
