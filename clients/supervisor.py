@@ -155,7 +155,8 @@ def format_trace(results_dir: str = "results") -> List[SessionItem]:
     Returns:
         List of SessionItem objects from detection problem traces
     """
-    session_items = []
+    session_items = list()
+    trace = list()
     
     # Get all JSON files in the results directory
     json_files = glob.glob(os.path.join(results_dir, "*.json"))
@@ -174,23 +175,24 @@ def format_trace(results_dir: str = "results") -> List[SessionItem]:
             trace_data = data.get('trace', [])
             for item in trace_data:
                 if isinstance(item, dict) and 'role' in item and 'content' in item:
-                    session_items.append(SessionItem(
+                    trace.append(SessionItem(
                         role=item['role'],
                         content=item['content']
                     ))
-            
+
+            session_items.append(trace)
         except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
             print(f"Error processing file {file_path}: {e}")
             continue
     
-    return session_items
+        return session_items
 
 
 
 if __name__ == "__main__":
     # Example usage with format_trace function
     print("Loading detection traces from results directory...")
-    session_traces = format_trace()
+    session_traces = format_trace("results/")
     print(f"Found {len(session_traces)} SessionItem objects from detection problems")
     
     # Example usage with supervisor evaluation
