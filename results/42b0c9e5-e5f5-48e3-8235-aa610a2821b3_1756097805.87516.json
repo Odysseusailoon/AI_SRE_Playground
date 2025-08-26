@@ -1,0 +1,56 @@
+{
+    "agent": "openrouter",
+    "session_id": "42b0c9e5-e5f5-48e3-8235-aa610a2821b3",
+    "problem_id": "assign_to_non_existent_node_social_net-detection-1",
+    "start_time": 1756097805.87516,
+    "end_time": 1756097810.0454822,
+    "trace": [
+        {
+            "role": "assistant",
+            "content": "```\nexec_shell(\"kubectl get pods -n test-social-network\")\n```"
+        },
+        {
+            "role": "env",
+            "content": "NAME                                      READY   STATUS    RESTARTS   AGE\ncompose-post-service-7b495f794-rsjsc      1/1     Running   0          103s\nhome-timeline-redis-7f7686d8f5-7sgr6      1/1     Running   0          103s\nhome-timeline-service-6bf55fbcd8-md2b4    1/1     Running   0          100s\njaeger-7cb68977df-tg9jt                   1/1     Running   0          103s\nmedia-frontend-7ccdcc5874-9cjh9           1/1     Running   0          102s\nmedia-memcached-6f888776fd-nw7zs          1/1     Running   0          102s\nmedia-mongodb-66c679cd9-96vf7             1/1     Running   0          103s\nmedia-service-8486767bd-zw4kn             1/1     Running   0          102s\nnginx-thrift-7fbb6d9b65-dh8tk             1/1     Running   0          100s\npost-storage-memcached-6dcc4b4c66-gwl8c   1/1     Running   0          101s\npost-storage-mongodb-6db994db57-xb7s9     1/1     Running   0          102s\npost-storage-service-5f4d46cbb9-r6ctc     1/1     Running   0          101s\nsocial-graph-mongodb-8485c8fc7-rgnb8      1/1     Running   0          103s\nsocial-graph-redis-66688cfbd8-9hhr5       1/1     Running   0          100s\nsocial-graph-service-65b8ddbdbc-xjqbf     1/1     Running   0          101s\ntext-service-774b6cf48f-ptj2q             1/1     Running   0          103s\nunique-id-service-fc74bdf74-vlspz         1/1     Running   0          101s\nurl-shorten-memcached-566bf679b4-sdglr    1/1     Running   0          100s\nurl-shorten-mongodb-5466bc77c8-m9b2d      1/1     Running   0          100s\nurl-shorten-service-598df5754-ddsh2       1/1     Running   0          103s\nuser-memcached-849988fd5b-z7f5j           1/1     Running   0          101s\nuser-mention-service-59cf6d5b8f-ltmpq     1/1     Running   0          100s\nuser-mongodb-5cf7c6cd7b-htgx6             1/1     Running   0          103s\nuser-service-54699b6465-z785n             0/1     Pending   0          42s\nuser-timeline-mongodb-c895ffcc8-hth6r     1/1     Running   0          102s\nuser-timeline-redis-84dc9b4599-wxgfj      1/1     Running   0          103s\nuser-timeline-service-647bd67bfb-cbph9    1/1     Running   0          103s\n"
+        },
+        {
+            "role": "assistant",
+            "content": "```\nexec_shell(\"kubectl describe pod user-service-54699b6465-z785n -n test-social-network\")\n```"
+        },
+        {
+            "role": "env",
+            "content": "Name:             user-service-54699b6465-z785n\nNamespace:        test-social-network\nPriority:         0\nService Account:  default\nNode:             <none>\nLabels:           app=user-service\n                  pod-template-hash=54699b6465\n                  service=user-service\nAnnotations:      <none>\nStatus:           Pending\nIP:               \nIPs:              <none>\nControlled By:    ReplicaSet/user-service-54699b6465\nContainers:\n  user-service:\n    Image:      docker.io/deathstarbench/social-network-microservices:latest\n    Port:       9090/TCP\n    Host Port:  0/TCP\n    Command:\n      UserService\n    Environment:  <none>\n    Mounts:\n      /social-network-microservices/config/jaeger-config.yml from user-service-config (rw,path=\"jaeger-config.yml\")\n      /social-network-microservices/config/service-config.json from user-service-config (rw,path=\"service-config.json\")\n      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lj5bx (ro)\nConditions:\n  Type           Status\n  PodScheduled   False \nVolumes:\n  user-service-config:\n    Type:      ConfigMap (a volume populated by a ConfigMap)\n    Name:      user-service\n    Optional:  false\n  kube-api-access-lj5bx:\n    Type:                    Projected (a volume that contains injected data from multiple sources)\n    TokenExpirationSeconds:  3607\n    ConfigMapName:           kube-root-ca.crt\n    ConfigMapOptional:       <nil>\n    DownwardAPI:             true\nQoS Class:                   BestEffort\nNode-Selectors:              kubernetes.io/hostname=extra-node\nTolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s\n                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s\nEvents:\n  Type     Reason            Age   From               Message\n  ----     ------            ----  ----               -------\n  Warning  FailedScheduling  43s   default-scheduler  0/2 nodes are available: 1 node(s) didn't match Pod's node affinity/selector, 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling.\n"
+        },
+        {
+            "role": "assistant",
+            "content": "```\nexec_shell(\"kubectl get nodes -o wide\")\n```"
+        },
+        {
+            "role": "env",
+            "content": "NAME                 STATUS   ROLES           AGE    VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION    CONTAINER-RUNTIME\nkind-control-plane   Ready    control-plane   158m   v1.32.0   172.18.0.2    <none>        Debian GNU/Linux 12 (bookworm)   6.14.0-1010-aws   containerd://1.7.24\nkind-worker          Ready    <none>          158m   v1.32.0   172.18.0.3    <none>        Debian GNU/Linux 12 (bookworm)   6.14.0-1010-aws   containerd://1.7.24\n"
+        },
+        {
+            "role": "assistant",
+            "content": "```\nexec_shell(\"kubectl get node kind-control-plane -o jsonpath='{.spec.taints}'\")\n```"
+        },
+        {
+            "role": "env",
+            "content": "[{\"effect\":\"NoSchedule\",\"key\":\"node-role.kubernetes.io/control-plane\"}]"
+        },
+        {
+            "role": "assistant",
+            "content": "```\nsubmit(\"Yes\")\n```"
+        },
+        {
+            "role": "env",
+            "content": "1"
+        }
+    ],
+    "results": {
+        "Detection Accuracy": "Correct",
+        "TTD": 4.1703221797943115,
+        "steps": 5,
+        "in_tokens": 1496,
+        "out_tokens": 85
+    }
+}
