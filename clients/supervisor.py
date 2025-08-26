@@ -6,6 +6,8 @@ a real problem, helping to reduce false positives in detection accuracy metrics.
 
 import os
 import sys
+import json
+import glob
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 from dotenv import load_dotenv
@@ -143,11 +145,55 @@ def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result
         "original_detection": original_result
     }
 
+def format_trace(results_dir: str = "results") -> List[SessionItem]:
+    """
+    Process trace data from results/*.json files, filtering for detection problems only.
+    
+    Args:
+        results_dir: Directory containing the JSON result files
+        
+    Returns:
+        List of SessionItem objects from detection problem traces
+    """
+    session_items = []
+    
+    # Get all JSON files in the results directory
+    json_files = glob.glob(os.path.join(results_dir, "*.json"))
+    
+    for file_path in json_files:
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+            
+            # Only process files where problem_id contains 'detection'
+            problem_id = data.get('problem_id', '')
+            if 'detection' not in problem_id.lower():
+                continue
+                
+            # Extract trace items and convert to SessionItem objects
+            trace_data = data.get('trace', [])
+            for item in trace_data:
+                if isinstance(item, dict) and 'role' in item and 'content' in item:
+                    session_items.append(SessionItem(
+                        role=item['role'],
+                        content=item['content']
+                    ))
+            
+        except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
+            print(f"Error processing file {file_path}: {e}")
+            continue
+    
+    return session_items
+
+
 
 if __name__ == "__main__":
-    # Example usage with the case from the requirement
-    from aiopslab.session import SessionItem
+    # Example usage with format_trace function
+    print("Loading detection traces from results directory...")
+    session_traces = format_trace()
+    print(f"Found {len(session_traces)} SessionItem objects from detection problems")
     
+    # Example usage with supervisor evaluation
     example_trace = [
         SessionItem(role="assistant", content='exec_shell("kubectl get pods -n docker")'),
         SessionItem(role="env", content="No resources found in docker namespace.\n"),
@@ -156,8 +202,8 @@ if __name__ == "__main__":
         SessionItem(role="assistant", content='submit("Yes")'),
         SessionItem(role="env", content="1")
     ]
-    
-    result = evaluate_detection_with_supervisor(example_trace, "Yes")
-    print("Supervisor Evaluation Results:")
-    for key, value in result.items():
-        print(f"  {key}: {value}")
+
+    for trace in session_traces:
+        result = evaluate_detection_with_supervisor(trace, "Yes")
+        print("\nSupervisor Evaluation Results:")
+        print(json.dumps(result, indent=4))
