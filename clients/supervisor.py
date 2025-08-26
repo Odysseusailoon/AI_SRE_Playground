@@ -145,7 +145,7 @@ def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result
         "original_detection": original_result
     }
 
-def format_trace(results_dir: str = "results") -> List[SessionItem]:
+def format_trace(results_dir: str = "../results") -> List[SessionItem]:
     """
     Process trace data from results/*.json files, filtering for detection problems only.
     
@@ -192,7 +192,7 @@ def format_trace(results_dir: str = "results") -> List[SessionItem]:
 if __name__ == "__main__":
     # Example usage with format_trace function
     print("Loading detection traces from results directory...")
-    session_traces = format_trace("results/")
+    session_traces = format_trace()
     print(f"Found {len(session_traces)} SessionItem objects from detection problems")
     
     # Example usage with supervisor evaluation
