@@ -75,4 +75,25 @@ class DetectionTask(Task):
     def eval(self, soln: Any, trace: list[SessionItem], duration: float):
         self.add_result("TTD", duration)
         self.common_eval(trace)
+        
+        from aiopslab.config import Config
+        from aiopslab.paths import BASE_DIR
+        config = Config(BASE_DIR / "config.yml")
+        
+        if config.get("supervisor_eval", False):
+            try:
+                from clients.supervisor import evaluate_detection_with_supervisor
+                supervisor_results = evaluate_detection_with_supervisor(trace, str(soln))
+                
+                for key, value in supervisor_results.items():
+                    self.add_result(f"supervisor_{key}", value)
+                    
+                if supervisor_results.get("final_detection_accuracy") == "False Positive":
+                    self.add_result("Detection Accuracy", "False Positive (Supervisor)")
+                    
+            except ImportError:
+                print("Warning: Supervisor evaluation requested but supervisor module not found")
+            except Exception as e:
+                print(f"Warning: Supervisor evaluation failed: {e}")
+        
         return self.results
