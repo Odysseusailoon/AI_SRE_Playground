@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).parent.parent))
 from clients.utils.llm import GPTClient
 from aiopslab.session import SessionItem
+import argparse
 
 load_dotenv()
 
@@ -197,7 +198,10 @@ def format_trace(results_dir: str = "../results") -> List[tuple[List[SessionItem
 if __name__ == "__main__":
     # Example usage with format_trace function
     print("Loading detection traces from results directory...")
-    session_traces = format_trace()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dir", type=str, default="../results", help="The results dir")
+    args = parser.parse_args()
+    session_traces = format_trace(args.model)
     print(f"Found {len(session_traces)} detection problem traces")
     
     # Example usage with supervisor evaluation
