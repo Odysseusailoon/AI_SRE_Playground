@@ -201,7 +201,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str, default="../results", help="The results dir")
     customer_args = parser.parse_args()
-    session_traces = format_trace(customer_args.model)
+    session_traces = format_trace(customer_args.dir)
     print(f"Found {len(session_traces)} detection problem traces")
     
     # Example usage with supervisor evaluation
