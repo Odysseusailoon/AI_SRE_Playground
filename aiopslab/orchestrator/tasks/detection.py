@@ -90,6 +90,7 @@ class DetectionTask(Task):
                     
                 if supervisor_results.get("final_detection_accuracy") == "False Positive":
                     self.add_result("Detection Accuracy", "False Positive (Supervisor)")
+                    self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
                     
             except ImportError:
                 print("Warning: Supervisor evaluation requested but supervisor module not found")
