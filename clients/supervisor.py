@@ -38,7 +38,8 @@ class SupervisorAgent:
         """
         conversation_text = self._format_conversation(trace)
         
-        system_prompt = """You are a supervisor agent evaluating whether a detection task conversation provides sufficient evidence of an actual system problem.
+        system_prompt = """
+        You are a supervisor agent evaluating whether a detection task conversation provides sufficient evidence of an actual system problem.
 
 Your task is to analyze the conversation between an agent and a system environment to determine if there is genuine evidence of a problem that warrants marking the detection as positive.
 
@@ -108,7 +109,7 @@ Based on the conversation, does this provide sufficient evidence of an actual sy
         return "\n".join(formatted_lines)
 
 
-def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result: str) -> Dict[str, Any]:
+def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result: str, filename: str = None) -> Dict[str, Any]:
     """Evaluate a detection task with supervisor validation.
     
     Args:
@@ -128,7 +129,7 @@ def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result
             explanation = "Agent correctly identified evidenced problem"
         else:
             final_result = "False Positive"  # False positive caught by supervisor
-            explanation = f"Agent reported problem but supervisor found insufficient evidence: {reason}"
+            explanation = f"Agent reported problem but supervisor found insufficient evidence: {reason} (Supervisor)"
     else:  # original_result == "no"
         if is_evidenced:
             final_result = "False Negative"  # Missed a real problem
@@ -138,14 +139,14 @@ def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result
             explanation = "Agent correctly identified no problem"
     
     return {
+        "filename": filename,
         "supervisor_evidenced": is_evidenced,
-        "supervisor_reason": reason,
         "final_detection_accuracy": final_result,
         "supervisor_explanation": explanation,
         "original_detection": original_result
     }
 
-def format_trace(results_dir: str = "../results") -> List[SessionItem]:
+def format_trace(results_dir: str = "../results") -> List[tuple[List[SessionItem], str]]:
     """
     Process trace data from results/*.json files, filtering for detection problems only.
     
@@ -153,10 +154,9 @@ def format_trace(results_dir: str = "../results") -> List[SessionItem]:
         results_dir: Directory containing the JSON result files
         
     Returns:
-        List of SessionItem objects from detection problem traces
+        List of tuples containing (SessionItem list, filename) from detection problem traces
     """
-    session_items = list()
-    trace = list()
+    session_items = []
     
     # Get all JSON files in the results directory
     json_files = glob.glob(os.path.join(results_dir, "*.json"))
@@ -171,6 +171,9 @@ def format_trace(results_dir: str = "../results") -> List[SessionItem]:
             if 'detection' not in problem_id.lower():
                 continue
                 
+            # Create a new trace for each file
+            trace = []
+            
             # Extract trace items and convert to SessionItem objects
             trace_data = data.get('trace', [])
             for item in trace_data:
@@ -180,12 +183,14 @@ def format_trace(results_dir: str = "../results") -> List[SessionItem]:
                         content=item['content']
                     ))
 
-            session_items.append(trace)
+            # Extract just the filename from the full path
+            filename = os.path.basename(file_path)
+            session_items.append((trace, filename))
         except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
             print(f"Error processing file {file_path}: {e}")
             continue
     
-        return session_items
+    return session_items
 
 
 
@@ -193,7 +198,7 @@ if __name__ == "__main__":
     # Example usage with format_trace function
     print("Loading detection traces from results directory...")
     session_traces = format_trace()
-    print(f"Found {len(session_traces)} SessionItem objects from detection problems")
+    print(f"Found {len(session_traces)} detection problem traces")
     
     # Example usage with supervisor evaluation
     example_trace = [
@@ -205,7 +210,8 @@ if __name__ == "__main__":
         SessionItem(role="env", content="1")
     ]
 
-    for trace in session_traces:
-        result = evaluate_detection_with_supervisor(trace, "Yes")
+    for trace, filename in session_traces:
+        print(f"Processing file: {filename}")
+        result = evaluate_detection_with_supervisor(trace, "Yes", filename)
         print("\nSupervisor Evaluation Results:")
         print(json.dumps(result, indent=4))
