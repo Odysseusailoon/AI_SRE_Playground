@@ -79,15 +79,16 @@ class DetectionTask(Task):
         from aiopslab.config import Config
         from aiopslab.paths import BASE_DIR
         config = Config(BASE_DIR / "config.yml")
-        
+        print("here")
         if config.get("supervisor_eval", False):
             try:
+                print("here")
                 from clients.supervisor import evaluate_detection_with_supervisor
                 supervisor_results = evaluate_detection_with_supervisor(trace, str(soln))
                 
                 for key, value in supervisor_results.items():
                     self.add_result(f"supervisor_{key}", value)
-                    
+                print(supervisor_results.get("final_detection_accuracy"))
                 if supervisor_results.get("final_detection_accuracy") == "False Positive":
                     self.add_result("Detection Accuracy", "False Positive (Supervisor)")
                     self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
