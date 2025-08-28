@@ -56,7 +56,8 @@ class Task:
             self.add_result("reasoning_score", score)
         
         # Supervisor evaluation for detection tasks
-        if config.get("supervisor_eval", False) and hasattr(self, '__class__') and 'Detection' in self.__class__.__name__:
+        print("======name: ", hasattr(self, '__class__') and 'Detection' in self.__class__.__name__)
+        if config.get("supervisor_eval", False):
             try:
                 print("=== SUPERVISOR EVAL STARTING ===")
                 from clients.supervisor import evaluate_detection_with_supervisor
