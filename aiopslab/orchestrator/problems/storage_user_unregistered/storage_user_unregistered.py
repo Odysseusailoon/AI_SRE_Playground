@@ -79,7 +79,7 @@ class MongoDBUserUnregisteredDetection(MongoDBUserUnregisteredBaseTask, Detectio
         else:
             print("Invalid solution format")
             self.add_result("Detection Accuracy", "Invalid Format")
-
+        print("======fucking!=====")
         return super().eval(soln, trace, duration)
 
 
