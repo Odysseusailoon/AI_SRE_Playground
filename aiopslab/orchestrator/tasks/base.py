@@ -54,6 +54,35 @@ class Task:
             score, judgement = judge.reasoning_score()
             self.add_result("reasoning_judgement", judgement)
             self.add_result("reasoning_score", score)
+        
+        # Supervisor evaluation for detection tasks
+        if config.get("supervisor_eval", False) and hasattr(self, '__class__') and 'Detection' in self.__class__.__name__:
+            try:
+                print("=== SUPERVISOR EVAL STARTING ===")
+                from clients.supervisor import evaluate_detection_with_supervisor
+                # Get the solution from the trace
+                solution = None
+                for item in trace:
+                    if hasattr(item, 'content') and 'submit(' in str(item.content):
+                        solution = item.content
+                        break
+                
+                if solution:
+                    supervisor_results = evaluate_detection_with_supervisor(trace, str(solution))
+                    
+                    for key, value in supervisor_results.items():
+                        self.add_result(f"supervisor_{key}", value)
+                    print(f"Supervisor result: {supervisor_results.get('final_detection_accuracy')}")
+                    if supervisor_results.get("final_detection_accuracy") == "False Positive":
+                        self.add_result("Detection Accuracy", "False Positive (Supervisor)")
+                        self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
+                else:
+                    print("No solution found in trace for supervisor evaluation")
+                    
+            except ImportError:
+                print("Warning: Supervisor evaluation requested but supervisor module not found")
+            except Exception as e:
+                print(f"Warning: Supervisor evaluation failed: {e}")
 
     def sys_status_after_recovery(self) -> bool:
         pod_list = self.kubectl.list_pods(self.namespace)
