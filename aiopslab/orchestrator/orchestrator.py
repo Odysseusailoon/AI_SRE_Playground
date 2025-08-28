@@ -182,11 +182,17 @@ class Orchestrator:
         self.session.end()
 
         # A valid submission was made (or) max_steps reached
+        print(f"DEBUG: env_response = {env_response}")
+        print(f"DEBUG: SubmissionStatus.INVALID_SUBMISSION = {SubmissionStatus.INVALID_SUBMISSION}")
         if env_response != SubmissionStatus.INVALID_SUBMISSION:
+            print("DEBUG: About to call eval() method")
             results = self.session.problem.eval(
                 self.session.solution, self.session.history, self.session.get_duration()
             )
+            print("DEBUG: eval() method completed")
             self.sprint.result(results)
+        else:
+            print("DEBUG: Skipping eval() - invalid submission")
 
         self.session.set_results(results)
         self.session.to_json()
