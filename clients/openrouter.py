@@ -6,6 +6,7 @@ More info: https://openrouter.ai/
 
 import os
 import asyncio
+import logging
 import tiktoken
 import wandb
 import argparse
@@ -19,6 +20,17 @@ from dotenv import load_dotenv
 
 # Load environment variables from the .env file
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('openrouter_agent.log')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def count_message_tokens(message, enc):
     # Each message format adds ~4 tokens of overhead
@@ -59,12 +71,17 @@ class OpenRouterAgent:
         self.history = []
         self.llm = OpenRouterClient(model=model)
         self.model = model
+        self.logger = logging.getLogger(f"{__name__}.OpenRouterAgent")
+        self.logger.info(f"Initialized OpenRouterAgent with model: {model}")
 
     def test(self):
         return self.llm.run([{"role": "system", "content": "hello"}])
 
     def init_context(self, problem_desc: str, instructions: str, apis: str):
         """Initialize the context for the agent."""
+        self.logger.info("Initializing agent context")
+        self.logger.debug(f"Problem description: {problem_desc}")
+        self.logger.debug(f"Instructions: {instructions}")
 
         self.shell_api = self._filter_dict(apis, lambda k, _: "exec_shell" in k)
         self.submit_api = self._filter_dict(apis, lambda k, _: "submit" in k)
@@ -82,6 +99,7 @@ class OpenRouterAgent:
 
         self.history.append({"role": "system", "content": self.system_message})
         self.history.append({"role": "user", "content": self.task_message})
+        self.logger.info("Context initialization completed")
 
     async def get_action(self, input) -> str:
         """Wrapper to interface the agent with AIOpsLab.
@@ -92,18 +110,34 @@ class OpenRouterAgent:
         Returns:
             str: The response from the agent.
         """
+        self.logger.info("Agent received input for action generation")
+        self.logger.debug(f"Input from orchestrator: {input}")
+        
         self.history.append({"role": "user", "content": input})
+        self.logger.info(f"Added user message to history. Total messages: {len(self.history)}")
+        
         try:
+            self.logger.info("Trimming history to token limit")
             trimmed_history = trim_history_to_token_limit(self.history)
+            self.logger.info(f"History trimmed from {len(self.history)} to {len(trimmed_history)} messages")
+            
+            self.logger.info("Calling OpenRouter LLM for response generation")
             response = self.llm.run(trimmed_history)
+            
+            self.logger.info("Successfully received response from LLM")
+            self.logger.debug(f"LLM response: {response[0]}")
             print(f"===== Agent (OpenRouter - {self.model}) ====\n{response[0]}")
+            
             self.history.append({"role": "assistant", "content": response[0]})
+            self.logger.info("Added assistant response to history")
             return response[0]
         except Exception as e:
+            self.logger.error(f"Error during LLM communication: {repr(e)}")
             print(f"OpenRouter API error: {e}")
             # Return a fallback response
             fallback_response = f"Error occurred while calling OpenRouter API: {e}"
             self.history.append({"role": "assistant", "content": fallback_response})
+            self.logger.warning("Added fallback response to history due to error")
             return fallback_response
 
     def _filter_dict(self, dictionary, filter_func):
