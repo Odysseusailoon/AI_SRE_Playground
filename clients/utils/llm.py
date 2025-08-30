@@ -7,7 +7,6 @@
 import os
 import json
 import yaml
-import logging
 from groq import Groq
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -263,35 +262,17 @@ class OpenRouterClient:
     def __init__(self, model="anthropic/claude-3.5-sonnet"):
         self.cache = Cache()
         self.model = model
-        
-        # Setup logging
-        self.logger = logging.getLogger(f"OpenRouterClient.{model}")
-        if not self.logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            self.logger.setLevel(logging.INFO)
 
     def inference(self, payload: list[dict[str, str]]) -> list[str]:
-        self.logger.info(f"Starting inference with model: {self.model}")
-        self.logger.debug(f"Input payload: {json.dumps(payload, indent=2)}")
-        
         if self.cache is not None:
             cache_result = self.cache.get_from_cache(payload)
             if cache_result is not None:
-                self.logger.info("Retrieved response from cache")
-                self.logger.debug(f"Cached response: {cache_result}")
                 return cache_result
 
         client = OpenAI(
             api_key=os.getenv("OPENROUTER_API_KEY"),
             base_url="https://openrouter.ai/api/v1"
         )
-        
-        self.logger.info(f"Making API call to OpenRouter with model: {self.model}")
         try:
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
@@ -305,24 +286,17 @@ class OpenRouterClient:
                 timeout=60,
                 stop=[],
             )
-            self.logger.info("Successfully received response from OpenRouter API")
         except Exception as e:
-            self.logger.error(f"OpenRouter API call failed: {repr(e)}")
             print(f"Exception: {repr(e)}")
             raise e
 
-        response_content = [c.message.content for c in response.choices]  # type: ignore
-        self.logger.debug(f"API response content: {response_content}")
-        return response_content
+        return [c.message.content for c in response.choices]  # type: ignore
 
     def run(self, payload: list[dict[str, str]]) -> list[str]:
-        self.logger.info("Starting OpenRouter LLM run")
         response = self.inference(payload)
         if self.cache is not None:
-            self.logger.info("Adding response to cache and saving")
             self.cache.add_to_cache(payload, response)
             self.cache.save_cache()
-        self.logger.info("OpenRouter LLM run completed successfully")
         return response
 
 
