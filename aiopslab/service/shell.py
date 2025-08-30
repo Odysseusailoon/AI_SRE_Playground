@@ -61,6 +61,7 @@ class Shell:
                 return error_message
             else:
                 output_message = out.stdout.decode("utf-8") + out.stderr.decode("utf-8")
+                print(f"===== Output_Message 1 ====")
                 print(output_message)
                 return output_message
 
@@ -84,6 +85,7 @@ class Shell:
                 return error_message
             else:
                 output_message = stdout.read().decode("utf-8")
+                print(f"===== Output_Message 2 ====")
                 print(output_message)
                 return output_message
 
@@ -114,6 +116,7 @@ class Shell:
                 return error_message
             else:
                 output_message = out.stdout.decode("utf-8")
+                print(f"===== Output_Message 3 ====")
                 print(output_message)
                 return output_message
 
