@@ -66,7 +66,7 @@ class MongoDBUserUnregisteredDetection(MongoDBUserUnregisteredBaseTask, Detectio
         DetectionTask.__init__(self, self.app)
 
     def eval(self, soln: Any, trace: list[SessionItem], duration: float):
-        print("== Evaluation ==")
+        print("== Evaluation！！！！！！！！！！！ ==")
         expected_solution = "Yes"
 
         if isinstance(soln, str):
@@ -79,7 +79,7 @@ class MongoDBUserUnregisteredDetection(MongoDBUserUnregisteredBaseTask, Detectio
         else:
             print("Invalid solution format")
             self.add_result("Detection Accuracy", "Invalid Format")
-
+        print("======fucking!=====")
         return super().eval(soln, trace, duration)
 
 

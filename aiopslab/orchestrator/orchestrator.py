@@ -164,10 +164,13 @@ class Orchestrator:
 
                 env_response = await self.ask_env(action)
                 self.sprint.service(env_response)
+                print(f"DEBUG LOOP: env_response = {env_response}")
 
                 if env_response == SubmissionStatus.VALID_SUBMISSION:
+                    print("DEBUG LOOP: Valid submission - breaking")
                     break
                 elif env_response == SubmissionStatus.INVALID_SUBMISSION:
+                    print("DEBUG LOOP: Invalid submission - raising exception")
                     raise ValueError("Invalid submission!")  # TODO (@manish): ask to retry?
 
                 action_instr = env_response + "\n" + "Please take the next action"
@@ -180,14 +183,21 @@ class Orchestrator:
                 atexit.unregister(exit_cleanup_fault)
             raise e
 
+        print("DEBUG: Reached after try-catch block")
         self.session.end()
 
         # A valid submission was made (or) max_steps reached
+        print(f"DEBUG: env_response = {env_response}")
+        print(f"DEBUG: SubmissionStatus.INVALID_SUBMISSION = {SubmissionStatus.INVALID_SUBMISSION}")
         if env_response != SubmissionStatus.INVALID_SUBMISSION:
+            print("DEBUG: About to call eval() method")
             results = self.session.problem.eval(
                 self.session.solution, self.session.history, self.session.get_duration()
             )
+            print("DEBUG: eval() method completed")
             self.sprint.result(results)
+        else:
+            print("DEBUG: Skipping eval() - invalid submission")
 
         self.session.set_results(results)
         self.session.to_json()

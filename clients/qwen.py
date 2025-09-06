@@ -10,6 +10,7 @@ from pathlib import Path
 from aiopslab.orchestrator import Orchestrator
 from aiopslab.orchestrator.problems.registry import ProblemRegistry
 from clients.utils.llm import QwenClient
+from aiopslab.orchestrator.problems.registry import ProblemRegistry
 from clients.utils.templates import DOCS_SHELL_ONLY
 from dotenv import load_dotenv
 
@@ -108,6 +109,46 @@ class QwenAgent:
     def _filter_dict(self, dictionary, filter_func):
         return {k: v for k, v in dictionary.items() if filter_func(k, v)}
 
+def get_completed_problems(results_dir: Path, agent_name: str, model: str) -> set:
+    """Get set of completed problem IDs from existing result files."""
+    completed = set()
+
+    # Look in organized directory structure first
+    organized_dir = results_dir / agent_name / model.replace("/", "_")
+    if organized_dir.exists():
+        for result_file in organized_dir.glob("*.json"):
+            try:
+                with open(result_file, 'r') as f:
+                    data = json.load(f)
+                    if 'problem_id' in data:
+                        completed.add(data['problem_id'])
+            except (json.JSONDecodeError, IOError):
+                continue
+
+    # Also check legacy flat structure
+    for result_file in results_dir.glob("*.json"):
+        try:
+            with open(result_file, 'r') as f:
+                data = json.load(f)
+                if ('problem_id' in data and
+                    data.get('agent') == agent_name and
+                    model.split('/')[-1] in str(result_file)):
+                    completed.add(data['problem_id'])
+        except (json.JSONDecodeError, IOError):
+            continue
+
+    return completed
+
+def setup_results_directory(model: str, agent_name: str = "openrouter") -> Path:
+    """Setup organized results directory structure."""
+    results_base = Path("aiopslab/data/results")
+
+    # Create organized structure: results/{agent}/{model_safe}/
+    model_safe = model.replace("/", "_")
+    results_dir = results_base / agent_name / model_safe
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    return results_dir
 
 def get_completed_problems(results_dir: Path, agent_name: str, model: str) -> set:
     """Get set of completed problem IDs from existing result files."""
@@ -164,7 +205,6 @@ if __name__ == "__main__":
                        help='Qwen model to use')
 
     args = parser.parse_args()
-
     # Load use_wandb from environment variable with a default of False
     use_wandb = os.getenv("USE_WANDB", "false").lower() == "true"
 
