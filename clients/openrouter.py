@@ -1,4 +1,8 @@
-"""Qwen client (with shell access) for AIOpsLab."""
+"""OpenRouter client (with shell access) for AIOpsLab.
+
+OpenRouter provides access to multiple AI models through a unified API.
+More info: https://openrouter.ai/
+"""
 
 import os
 import asyncio
@@ -9,14 +13,12 @@ import json
 from pathlib import Path
 from aiopslab.orchestrator import Orchestrator
 from aiopslab.orchestrator.problems.registry import ProblemRegistry
-from clients.utils.llm import QwenClient
-from aiopslab.orchestrator.problems.registry import ProblemRegistry
+from clients.utils.llm import OpenRouterClient
 from clients.utils.templates import DOCS_SHELL_ONLY
 from dotenv import load_dotenv
 
 # Load environment variables from the .env file
 load_dotenv()
-
 
 def count_message_tokens(message, enc):
     # Each message format adds ~4 tokens of overhead
@@ -52,20 +54,21 @@ def trim_history_to_token_limit(history, max_tokens=120000, model="gpt-4"):
 
     return trimmed
 
-class QwenAgent:
-    def __init__(self, model="qwen-turbo"):
+class OpenRouterAgent:
+    def __init__(self, model="anthropic/claude-3.5-sonnet"):
         self.history = []
-        self.llm = QwenClient(model=model)
+        self.llm = OpenRouterClient(model=model)
         self.model = model
+
+    def test(self):
+        return self.llm.run([{"role": "system", "content": "hello"}])
 
     def init_context(self, problem_desc: str, instructions: str, apis: str):
         """Initialize the context for the agent."""
 
-        self.shell_api = self._filter_dict(
-            apis, lambda k, _: "exec_shell" in k)
+        self.shell_api = self._filter_dict(apis, lambda k, _: "exec_shell" in k)
         self.submit_api = self._filter_dict(apis, lambda k, _: "submit" in k)
-
-        def stringify_apis(apis): return "\n\n".join(
+        stringify_apis = lambda apis: "\n\n".join(
             [f"{k}\n{v}" for k, v in apis.items()]
         )
 
@@ -80,9 +83,6 @@ class QwenAgent:
         self.history.append({"role": "system", "content": self.system_message})
         self.history.append({"role": "user", "content": self.task_message})
 
-    def test(self):
-        return self.llm.run([{"role": "system", "content": "hello"}])
-
     async def get_action(self, input) -> str:
         """Wrapper to interface the agent with AIOpsLab.
 
@@ -96,18 +96,19 @@ class QwenAgent:
         try:
             trimmed_history = trim_history_to_token_limit(self.history)
             response = self.llm.run(trimmed_history)
-            print(f"===== Agent (Qwen - {self.model}) ====\n{response[0]}")
+            print(f"===== Agent (OpenRouter - {self.model}) ====\n{response[0]}")
             self.history.append({"role": "assistant", "content": response[0]})
             return response[0]
         except Exception as e:
-            print(f"Qwen API error: {e}")
+            print(f"OpenRouter API error: {e}")
             # Return a fallback response
-            fallback_response = f"Error occurred while calling Qwen API: {e}"
+            fallback_response = f"Error occurred while calling OpenRouter API: {e}"
             self.history.append({"role": "assistant", "content": fallback_response})
             return fallback_response
 
     def _filter_dict(self, dictionary, filter_func):
         return {k: v for k, v in dictionary.items() if filter_func(k, v)}
+
 
 def get_completed_problems(results_dir: Path, agent_name: str, model: str) -> set:
     """Get set of completed problem IDs from existing result files."""
@@ -150,50 +151,8 @@ def setup_results_directory(model: str, agent_name: str = "openrouter") -> Path:
 
     return results_dir
 
-def get_completed_problems(results_dir: Path, agent_name: str, model: str) -> set:
-    """Get set of completed problem IDs from existing result files."""
-    completed = set()
-
-    # Look in organized directory structure first
-    organized_dir = results_dir / agent_name / model.replace("/", "_")
-    if organized_dir.exists():
-        for result_file in organized_dir.glob("*.json"):
-            try:
-                with open(result_file, 'r') as f:
-                    data = json.load(f)
-                    if 'problem_id' in data:
-                        completed.add(data['problem_id'])
-            except (json.JSONDecodeError, IOError):
-                continue
-
-    # Also check legacy flat structure
-    for result_file in results_dir.glob("*.json"):
-        try:
-            with open(result_file, 'r') as f:
-                data = json.load(f)
-                if ('problem_id' in data and
-                    data.get('agent') == agent_name and
-                    model.split('/')[-1] in str(result_file)):
-                    completed.add(data['problem_id'])
-        except (json.JSONDecodeError, IOError):
-            continue
-
-    return completed
-
-def setup_results_directory(model: str, agent_name: str = "qwen") -> Path:
-    """Setup organized results directory structure."""
-    results_base = Path("aiopslab/data/results")
-
-    # Create organized structure: results/{agent}/{model_safe}/
-    model_safe = model.replace("/", "_")
-    results_dir = results_base / agent_name / model_safe
-    results_dir.mkdir(parents=True, exist_ok=True)
-
-    return results_dir
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run Qwen agent on AIOpsLab problems')
+    parser = argparse.ArgumentParser(description='Run OpenRouter agent on AIOpsLab problems')
     parser.add_argument('--skip-completed', action='store_true',
                        help='Skip problems that have already been completed')
     parser.add_argument('--problem-ids', nargs='+',
@@ -201,10 +160,11 @@ if __name__ == "__main__":
     parser.add_argument('--max-steps', type=int, default=30,
                        help='Maximum steps per problem (default: 30)')
     parser.add_argument('--model', type=str,
-                       default=os.getenv("QWEN_MODEL", "qwen-turbo"),
-                       help='Qwen model to use')
+                       default=os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+                       help='OpenRouter model to use')
 
     args = parser.parse_args()
+
     # Load use_wandb from environment variable with a default of False
     use_wandb = os.getenv("USE_WANDB", "false").lower() == "true"
 
@@ -213,7 +173,7 @@ if __name__ == "__main__":
         wandb.init(project="AIOpsLab", entity="AIOpsLab")
 
     model = args.model
-    agent_name = "qwen"
+    agent_name = "openrouter"
 
     # Setup organized results directory
     results_dir = setup_results_directory(model, agent_name)
@@ -248,7 +208,7 @@ if __name__ == "__main__":
 
     for pid in problems:
         print(f"\n=== Starting problem: {pid} ===")
-        agent = QwenAgent(model=model)
+        agent = OpenRouterAgent(model=model)
 
         orchestrator = Orchestrator(results_dir=results_dir)
         orchestrator.register_agent(agent, name=agent_name)

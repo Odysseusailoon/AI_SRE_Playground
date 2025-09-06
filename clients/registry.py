@@ -4,6 +4,7 @@ from clients.gpt import GPTAgent
 from clients.qwen import QwenAgent
 from clients.deepseek import DeepSeekAgent
 from clients.vllm import vLLMAgent
+from clients.openrouter import OpenRouterAgent
 
 class AgentRegistry:
     """Registry for agent implementations."""
@@ -14,6 +15,7 @@ class AgentRegistry:
             "qwen": QwenAgent,
             "deepseek": DeepSeekAgent,
             "vllm": vLLMAgent,
+            "openrouter": OpenRouterAgent,
         }
     
     def register(self, name, agent_cls):

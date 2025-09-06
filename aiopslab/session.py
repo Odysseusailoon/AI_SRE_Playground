@@ -7,6 +7,8 @@ import time
 import uuid
 import json
 import wandb
+import sys
+from io import StringIO
 from pydantic import BaseModel
 
 from aiopslab.paths import RESULTS_DIR
@@ -18,7 +20,7 @@ class SessionItem(BaseModel):
 
 
 class Session:
-    def __init__(self) -> None:
+    def __init__(self, results_dir=None) -> None:
         self.session_id = uuid.uuid4()
         self.pid = None
         self.problem = None
@@ -28,6 +30,9 @@ class Session:
         self.start_time = None
         self.end_time = None
         self.agent_name = None
+        self.results_dir = results_dir
+        self.print_logs = []
+        self.original_stdout = None
 
     def set_problem(self, problem, pid=None):
         """Set the problem instance for the session.
@@ -87,12 +92,37 @@ class Session:
         self.history = []
 
     def start(self):
-        """Start the session."""
+        """Start the session and begin capturing print output."""
         self.start_time = time.time()
+        self.start_print_capture()
 
     def end(self):
-        """End the session."""
+        """End the session and stop capturing print output."""
         self.end_time = time.time()
+        self.stop_print_capture()
+    
+    def start_print_capture(self):
+        """Start capturing print output to logs."""
+        class PrintCapture:
+            def __init__(self, session):
+                self.session = session
+                self.original_stdout = sys.stdout
+            
+            def write(self, text):
+                if text.strip():  # Only capture non-empty lines
+                    self.session.print_logs.append(text.rstrip())
+                self.original_stdout.write(text)  # Still print to console
+            
+            def flush(self):
+                self.original_stdout.flush()
+        
+        self.original_stdout = sys.stdout
+        sys.stdout = PrintCapture(self)
+    
+    def stop_print_capture(self):
+        """Stop capturing print output."""
+        if self.original_stdout:
+            sys.stdout = self.original_stdout
 
     def get_duration(self) -> float:
         """Get the duration of the session."""
@@ -115,19 +145,39 @@ class Session:
 
     def to_json(self):
         """Save the session to a JSON file."""
-        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        from pathlib import Path
+        results_dir = Path(self.results_dir) if self.results_dir else RESULTS_DIR
+        results_dir.mkdir(parents=True, exist_ok=True)
 
-        with open(RESULTS_DIR / f"{self.session_id}_{self.start_time}.json", "w") as f:
+        filename_base = f"{self.session_id}_{self.start_time}"
+        
+        # Save JSON file
+        with open(results_dir / f"{filename_base}.json", "w") as f:
             json.dump(self.to_dict(), f, indent=4)
+        
+        # Save TXT file with print logs
+        self.to_txt(filename_base)
     
+    def to_txt(self, filename_base):
+        """Save the session print logs to a TXT file."""
+        from pathlib import Path
+        results_dir = Path(self.results_dir) if self.results_dir else RESULTS_DIR
+        
+        with open(results_dir / f"{filename_base}.txt", "w") as f:
+            # Write all captured print outputs
+            for log_entry in getattr(self, 'print_logs', []):
+                f.write(log_entry + "\n")
+
     def to_wandb(self):
         """Log the session to Weights & Biases."""
         wandb.log(self.to_dict())
 
     def from_json(self, filename: str):
         """Load a session from a JSON file."""
+        from pathlib import Path
+        results_dir = Path(self.results_dir) if self.results_dir else RESULTS_DIR
 
-        with open(RESULTS_DIR / filename, "r") as f:
+        with open(results_dir / filename, "r") as f:
             data = json.load(f)
 
         self.session_id = data.get("session_id")
