@@ -13,7 +13,7 @@ from typing import Dict, Any, List, Tuple
 from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).parent.parent))
-from clients.utils.llm import GPTClient
+from clients.utils.llm import OpenRouterClient
 from aiopslab.session import SessionItem
 import argparse
 
@@ -23,9 +23,9 @@ load_dotenv()
 class SupervisorAgent:
     """A lightweight GPT-based supervisor to evaluate detection task conversations."""
     
-    def __init__(self, model: str = "gpt-4o"):
+    def __init__(self, model: str = "openai/gpt-4o-mini"):
         """Initialize supervisor agent with specified model."""
-        self.llm = GPTClient()
+        self.llm = OpenRouterClient(model=model)
         self.model = model
         
     def evaluate_detection_conversation(self, trace: List[SessionItem]) -> Tuple[bool, str]:
@@ -120,11 +120,11 @@ def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result
     Returns:
         Dictionary with supervisor evaluation results
     """
-    supervisor = SupervisorAgent()
+    supervisor_model = os.getenv("SUPERVISOR_MODEL")
+    supervisor = SupervisorAgent(model=supervisor_model)
     is_evidenced, reason = supervisor.evaluate_detection_conversation(trace)
-    
     # Determine final result
-    if original_result.strip().lower() == "yes":
+    if "yes" in original_result.strip().lower():
         if is_evidenced:
             final_result = "Correct"  # True positive
             explanation = "Agent correctly identified evidenced problem"
@@ -138,13 +138,12 @@ def evaluate_detection_with_supervisor(trace: List[SessionItem], original_result
         else:
             final_result = "Correct"  # True negative
             explanation = "Agent correctly identified no problem"
-    
+
     return {
-        "filename": filename,
         "supervisor_evidenced": is_evidenced,
-        "final_detection_accuracy": final_result,
         "supervisor_explanation": explanation,
-        "original_detection": original_result
+        "supervisor_original_result": original_result,
+        "supervisor_result": final_result
     }
 
 def format_trace(results_dir: str = "../results") -> List[tuple[List[SessionItem], str]]:
