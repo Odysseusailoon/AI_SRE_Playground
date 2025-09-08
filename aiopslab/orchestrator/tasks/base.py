@@ -72,9 +72,6 @@ class Task:
                     self.add_result("supervisor_result", supervisor_results.get("supervisor_result"))
                     self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
                     print(f"Supervisor result: {supervisor_results.get('supervisor_result')}")
-                    # if supervisor_results.get("final_detection_accuracy") == "False Positive":
-                    #     self.add_result("Detection Accuracy", "False Positive (Supervisor)")
-                    #     self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
                 else:
                     print("No solution found in trace for supervisor evaluation")
                     

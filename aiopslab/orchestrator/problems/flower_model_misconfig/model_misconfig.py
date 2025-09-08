@@ -93,10 +93,4 @@ class FlowerModelMisconfigDetection(FlowerModelMisconfigBaseTask, DetectionTask)
             print("Invalid solution format")
             self.add_result("Detection Accuracy", "Invalid Format")
 
-        results = super().eval(soln, trace, duration)
-        
-        if "supervisor_final_detection_accuracy" in results:
-            print(f"Supervisor evaluation: {results['supervisor_final_detection_accuracy']}")
-            print(f"Supervisor reason: {results['supervisor_supervisor_reason']}")
-            
-        return results
+        return super().eval(soln, trace, duration)

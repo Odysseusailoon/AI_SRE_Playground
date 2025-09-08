@@ -91,7 +91,7 @@ def get_completed_problems(results_dir: Path, agent_name: str, model: str) -> se
 
     return completed
 
-def setup_results_directory(model: str, agent_name: str = "openrouter") -> Path:
+def setup_results_directory(model: str, agent_name: str = "qwen") -> Path:
     """Setup organized results directory structure."""
     results_base = Path("aiopslab/data/results")
 

@@ -75,5 +75,4 @@ class DetectionTask(Task):
     def eval(self, soln: Any, trace: list[SessionItem], duration: float):
         self.add_result("TTD", duration)
         self.common_eval(trace)
-        
         return self.results

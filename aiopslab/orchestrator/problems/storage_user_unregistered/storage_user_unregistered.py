@@ -90,7 +90,6 @@ class MongoDBUserUnregisteredLocalization(
         LocalizationTask.__init__(self, self.app)
 
     def eval(self, soln: Any, trace: list[SessionItem], duration: float):
-        print("== Evaluation ==")
 
         if soln is None:
             print("Solution is None")
