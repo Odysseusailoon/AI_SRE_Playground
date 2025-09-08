@@ -122,6 +122,9 @@ class GPTClient:
         model = os.getenv("OPENROUTER_MODEL", "gpt-4-turbo-2024-04-09")
         
         client = OpenAI(api_key=api_key, base_url=base_url)
+
+        print("===== prompt =====")
+        print(payload)
         try:
             response = self.client.chat.completions.create(
                 messages=payload,  # type: ignore
@@ -163,6 +166,9 @@ class DeepSeekClient:
 
         client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"),
                         base_url="https://api.deepseek.com")
+
+        print("===== prompt =====")
+        print(payload)
         try:
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
@@ -204,6 +210,8 @@ class QwenClient:
                 return cache_result
         client = OpenAI(api_key=os.getenv("DASHSCOPE_API_KEY"),
                         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
+        print("===== prompt =====")
+        print(payload)
         try:
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
@@ -268,6 +276,8 @@ class vLLMClient:
                 return cache_result
 
         client = OpenAI(api_key="EMPTY", base_url="http://localhost:8000/v1")
+        print("===== prompt =====")
+        print(payload)
         try:
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
@@ -312,6 +322,8 @@ class OpenRouterClient:
             api_key=os.getenv("OPENROUTER_API_KEY"),
             base_url="https://openrouter.ai/api/v1"
         )
+        print("===== prompt =====")
+        print(payload)
         try:
             response = client.chat.completions.create(
                 messages=payload,  # type: ignore
@@ -352,6 +364,8 @@ class LLaMAClient:
                 return cache_result
 
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        print("===== prompt =====")
+        print(payload)
         try:
             response = client.chat.completions.create(
                 messages=payload,
