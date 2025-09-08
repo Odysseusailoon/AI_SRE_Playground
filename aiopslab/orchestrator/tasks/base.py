@@ -56,7 +56,6 @@ class Task:
             self.add_result("reasoning_score", score)
         
         # Supervisor evaluation for detection tasks
-        print("======name: ", hasattr(self, '__class__') and 'Detection' in self.__class__.__name__)
         if config.get("supervisor_eval", False):
             try:
                 print("=== SUPERVISOR EVAL STARTING ===")
@@ -70,13 +69,12 @@ class Task:
                 
                 if solution:
                     supervisor_results = evaluate_detection_with_supervisor(trace, str(solution))
-                    
-                    for key, value in supervisor_results.items():
-                        self.add_result(f"supervisor_{key}", value)
-                    print(f"Supervisor result: {supervisor_results.get('final_detection_accuracy')}")
-                    if supervisor_results.get("final_detection_accuracy") == "False Positive":
-                        self.add_result("Detection Accuracy", "False Positive (Supervisor)")
-                        self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
+                    self.add_result("supervisor_result", supervisor_results.get("supervisor_result"))
+                    self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
+                    print(f"Supervisor result: {supervisor_results.get('supervisor_result')}")
+                    # if supervisor_results.get("final_detection_accuracy") == "False Positive":
+                    #     self.add_result("Detection Accuracy", "False Positive (Supervisor)")
+                    #     self.add_result("supervisor_explanation", supervisor_results.get("supervisor_explanation"))
                 else:
                     print("No solution found in trace for supervisor evaluation")
                     

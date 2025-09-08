@@ -73,9 +73,6 @@ class DetectionTask(Task):
             raise InvalidActionError(action_name)
 
     def eval(self, soln: Any, trace: list[SessionItem], duration: float):
-        print("=== DETECTION EVAL METHOD CALLED ===")
-        print(f"Solution: {soln}")
-        print(f"Duration: {duration}")
         self.add_result("TTD", duration)
         self.common_eval(trace)
         
