@@ -188,7 +188,7 @@ async def get_task_logs(
         )
 
         return TaskLogsResponse(
-            logs=[TaskLogEntry.model_validate(log) for log in logs],
+            logs=[TaskLogEntry.model_validate(log.to_dict()) for log in logs],
             total=len(logs)
         )
 

@@ -30,6 +30,7 @@ class Orchestrator:
         self.kubectl = KubeCtl()
         self.use_wandb = os.getenv("USE_WANDB", "false").lower() == "true"
         self.results_dir = results_dir
+        self.prometheus = None
 
     def init_problem(self, problem_id: str):
         """Initialize a problem instance for the agent to solve.
@@ -204,7 +205,7 @@ class Orchestrator:
         # if not self.session.problem.sys_status_after_recovery():
         self.session.problem.app.cleanup()
         
-        if self.session.problem.namespace != "docker":
+        if self.session.problem.namespace != "docker" and self.prometheus:
             self.prometheus.teardown()
             print("Uninstalling OpenEBS...")
             self.kubectl.exec_command("kubectl delete sc openebs-hostpath openebs-device --ignore-not-found")

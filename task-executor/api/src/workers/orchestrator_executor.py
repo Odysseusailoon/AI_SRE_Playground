@@ -3,11 +3,12 @@
 import os
 import sys
 import asyncio
-import subprocess
 import uuid
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 import json
+from pathlib import Path
+import asyncio
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -49,17 +50,64 @@ class OrchestratorExecutor(TaskExecutor):
         self.current_conversation = None
         self.agent = None
 
+    @staticmethod
+    def _get_default_model() -> Optional[str]:
+        """Resolve default LLM model from environment variables."""
+        for env_var in ("OPENROUTER_MODEL", "OPENAI_MODEL", "DEFAULT_AGENT_MODEL"):
+            value = os.getenv(env_var)
+            if value:
+                return value
+        return "gpt-4"
+
+    def _prepare_agent_config(self, config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Normalize agent configuration and apply environment defaults."""
+        prepared: Dict[str, Any] = dict(config or {})
+
+        model = str(prepared.get("model", "")).strip()
+        if not model:
+            prepared["model"] = self._get_default_model()
+
+        return prepared
+
     async def setup_cluster(self):
         """Create and setup Kind cluster for this worker."""
         try:
             # Check if cluster exists
-            result = subprocess.run(
-                ["kind", "get", "clusters"],
-                capture_output=True,
-                text=True
+            stdout, stderr, code = await self._run_command(
+                "kind", "get", "clusters"
             )
 
-            if self.cluster_name not in result.stdout:
+            if code != 0:
+                logger.error(
+                    "orchestrator.kind.list_failed",
+                    worker_id=self.worker_id,
+                    stderr=stderr.strip()
+                )
+                return False
+
+            clusters = {line.strip() for line in stdout.splitlines() if line.strip()}
+            needs_create = self.cluster_name not in clusters
+
+            if not needs_create:
+                _, _, nodes_code = await self._run_command(
+                    "kubectl",
+                    "--context",
+                    f"kind-{self.cluster_name}",
+                    "get",
+                    "nodes",
+                )
+                if nodes_code != 0:
+                    logger.warning(
+                        "orchestrator.cluster.unhealthy",
+                        worker_id=self.worker_id,
+                        cluster_name=self.cluster_name
+                    )
+                    await self._run_command(
+                        "kind", "delete", "cluster", "--name", self.cluster_name
+                    )
+                    needs_create = True
+
+            if needs_create:
                 logger.info(
                     "orchestrator.cluster.creating",
                     worker_id=self.worker_id,
@@ -67,8 +115,8 @@ class OrchestratorExecutor(TaskExecutor):
                 )
 
                 # Create Kind cluster
-                subprocess.run(
-                    ["kind", "create", "cluster", "--name", self.cluster_name],
+                await self._run_command(
+                    "kind", "create", "cluster", "--name", self.cluster_name,
                     check=True
                 )
 
@@ -85,8 +133,8 @@ class OrchestratorExecutor(TaskExecutor):
                 )
 
             # Set kubectl context
-            subprocess.run(
-                ["kubectl", "config", "use-context", f"kind-{self.cluster_name}"],
+            await self._run_command(
+                "kubectl", "config", "use-context", f"kind-{self.cluster_name}",
                 check=True
             )
 
@@ -117,85 +165,115 @@ class OrchestratorExecutor(TaskExecutor):
                     "error": "Failed to setup Kind cluster"
                 }
 
-            # Initialize orchestrator
-            results_dir = f"/tmp/aiopslab/{task.id}"
-            os.makedirs(results_dir, exist_ok=True)
-            self.orchestrator = Orchestrator(results_dir=results_dir)
+            previous_container = os.getenv("KIND_CONTAINER_NAME")
+            os.environ["KIND_CONTAINER_NAME"] = f"{self.cluster_name}-control-plane"
 
-            # Create conversation record
-            agent_config = task.parameters.get("agent_config", {})
-            self.current_conversation = await self._create_conversation(task, agent_config)
+            try:
+                # Initialize orchestrator
+                results_dir = Path("/tmp/aiopslab") / str(task.id)
+                results_dir.mkdir(parents=True, exist_ok=True)
+                self.orchestrator = Orchestrator(results_dir=results_dir)
 
-            # Initialize the agent based on config
-            agent = await self._create_agent(agent_config)
-            if not agent:
-                return {
-                    "success": False,
-                    "error": "Failed to create agent"
-                }
+                # Create conversation record
+                agent_config = self._prepare_agent_config(task.parameters.get("agent_config"))
+                self.current_conversation = await self._create_conversation(task, agent_config)
 
-            # Create logging wrapper to capture conversations
-            from .llm_logging_agent import LLMLoggingAgent
-            logging_agent = LLMLoggingAgent(
-                agent,
-                self.current_conversation,
-                self.session
-            )
+                # Initialize the agent based on config
+                agent = await self._create_agent(agent_config)
+                if not agent:
+                    return {
+                        "success": False,
+                        "error": "Failed to create agent"
+                    }
+                self.agent = agent
 
-            # Register agent with orchestrator
-            self.orchestrator.register_agent(logging_agent)
+                # Ensure conversation reflects the actual model being used
+                resolved_model = getattr(agent, "model", None)
+                if self.current_conversation and resolved_model:
+                    self.current_conversation.model_name = resolved_model
+                    await self.session.commit()
 
-            # Initialize and run the problem
-            prob_desc, task_desc, session = self.orchestrator.init_problem(task.problem_id)
+                # Create logging wrapper to capture conversations
+                from .llm_logging_agent import LLMLoggingAgent
+                logging_agent = LLMLoggingAgent(
+                    agent,
+                    self.current_conversation,
+                    self.session
+                )
 
-            # Log initial problem description
-            await self._log_message(
-                MessageRole.SYSTEM,
-                f"Problem: {prob_desc}\nTask: {task_desc}",
-                metadata={
+                # Register agent with orchestrator
+                self.orchestrator.register_agent(logging_agent)
+
+                # Initialize and run the problem
+                prob_desc, task_desc, actions = self.orchestrator.init_problem(task.problem_id)
+                session = self.orchestrator.session
+
+                if hasattr(agent, "init_context"):
+                    actions_str = json.dumps(actions, indent=2) if isinstance(actions, (dict, list)) else str(actions)
+                    try:
+                        agent.init_context(prob_desc, task_desc, actions_str)
+                    except Exception as e:
+                        logger.warning("orchestrator.agent.init_context.failed", error=str(e))
+
+                # Log initial problem description
+                await self._log_message(
+                    MessageRole.SYSTEM,
+                    f"Problem: {prob_desc}\nTask: {task_desc}",
+                    metadata={
+                        "problem_id": task.problem_id,
+                        "task_type": session.problem.__class__.__name__ if session and session.problem else None
+                    }
+                )
+
+                # Run the orchestrator
+                logger.info(
+                    "orchestrator.running",
+                    task_id=str(task.id),
+                    problem_id=task.problem_id
+                )
+
+                # Run orchestrator (this will interact with the agent)
+                max_steps = task.parameters.get("max_steps", settings.DEFAULT_MAX_STEPS)
+                success, solution = await self._run_orchestrator(max_steps=max_steps)
+
+                conversation_id = None
+                total_messages = None
+                if self.current_conversation:
+                    conversation_id = str(self.current_conversation.id)
+                    total_messages = self.current_conversation.total_messages
+
+                # Mark conversation as ended
+                await self._end_conversation(success=success)
+
+                # Get execution results
+                result = {
+                    "success": success,
+                    "solution": solution,
                     "problem_id": task.problem_id,
-                    "task_type": session.task.__class__.__name__
-                }
-            )
-
-            # Run the orchestrator
-            logger.info(
-                "orchestrator.running",
-                task_id=str(task.id),
-                problem_id=task.problem_id
-            )
-
-            # Run orchestrator (this will interact with the agent)
-            success, solution = await self._run_orchestrator()
-
-            # Mark conversation as ended
-            await self._end_conversation(success=success)
-
-            # Get execution results
-            result = {
-                "success": success,
-                "solution": solution,
-                "problem_id": task.problem_id,
-                "execution_time": datetime.utcnow().isoformat(),
-                "conversation_id": str(self.current_conversation.id),
-                "total_messages": self.current_conversation.total_messages,
-                "session_id": session.session_id if session else None
+                    "execution_time": datetime.utcnow().isoformat(),
+                    "conversation_id": conversation_id,
+                    "total_messages": total_messages,
+                "session_id": str(session.session_id) if session else None
             }
 
-            logger.info(
-                "orchestrator.task.complete",
-                task_id=str(task.id),
-                success=success,
-                conversation_id=str(self.current_conversation.id)
-            )
+                logger.info(
+                    "orchestrator.task.complete",
+                    task_id=str(task.id),
+                    success=success,
+                    conversation_id=conversation_id
+                )
 
-            return result
+                return result
+            finally:
+                if previous_container is None:
+                    os.environ.pop("KIND_CONTAINER_NAME", None)
+                else:
+                    os.environ["KIND_CONTAINER_NAME"] = previous_container
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "orchestrator.task.failed",
-                task_id=str(task.id),
-                error=str(e)
+                task_id=str(task.id)
             )
 
             if self.current_conversation:
@@ -214,7 +292,8 @@ class OrchestratorExecutor(TaskExecutor):
 
     async def _create_agent(self, agent_config: Dict[str, Any]):
         """Create the appropriate agent based on configuration."""
-        model = agent_config.get("model", "gpt-4")
+        model = agent_config.get("model") or self._get_default_model()
+        model = str(model).strip()
         use_openrouter = agent_config.get("use_openrouter", False)
 
         try:
@@ -330,29 +409,54 @@ class OrchestratorExecutor(TaskExecutor):
             )
             return None
 
-    async def _run_orchestrator(self):
+    async def _run_orchestrator(self, max_steps: int):
         """Run the orchestrator and capture results."""
         try:
-            # The orchestrator.run() method handles the agent interaction loop
-            self.orchestrator.run()
+            result = await self.orchestrator.start_problem(max_steps=max_steps)
 
-            # Check if the problem was solved
             session = self.orchestrator.session
-            if session and session.is_solved():
-                return True, session.get_solution()
-            else:
-                return False, "Problem not solved within constraints"
+            solved = False
+            solution = None
+
+            results_payload = None
+            if isinstance(result, dict):
+                results_payload = result.get("results") if "results" in result else result
+
+            if results_payload:
+                if isinstance(results_payload, dict):
+                    if "success" in results_payload:
+                        solved = bool(results_payload.get("success"))
+                    elif "Detection Accuracy" in results_payload:
+                        solved = str(results_payload.get("Detection Accuracy", "")).lower() == "correct"
+                solution = results_payload
+
+            if session:
+                session_results = getattr(session, "results", None)
+                if isinstance(session_results, dict):
+                    if "success" in session_results:
+                        solved = bool(session_results.get("success"))
+                    elif "Detection Accuracy" in session_results:
+                        solved = str(session_results.get("Detection Accuracy", "")).lower() == "correct"
+                solution = session_results
+                if not solution and hasattr(session, "get_solution"):
+                    solution = session.get_solution()
+
+            serializable_solution = json.loads(json.dumps(solution or result, default=str))
+
+            return solved, serializable_solution
 
         except Exception as e:
-            logger.error("orchestrator.run.failed", error=str(e))
+            logger.exception("orchestrator.run.failed")
             return False, str(e)
 
     async def _create_conversation(self, task: Task, agent_config: Dict) -> LLMConversation:
         """Create a new conversation record."""
+        model_name = str(agent_config.get("model") or self._get_default_model()).strip()
+
         conversation = LLMConversation(
             task_id=task.id,
             session_id=uuid.uuid4(),
-            model_name=agent_config.get("model", "gpt-4"),
+            model_name=model_name,
             model_config={
                 "temperature": agent_config.get("temperature", 0.7),
                 "max_tokens": agent_config.get("max_tokens", 4000),
@@ -453,3 +557,17 @@ class OrchestratorExecutor(TaskExecutor):
         # Optionally delete the Kind cluster
         # subprocess.run(["kind", "delete", "cluster", "--name", self.cluster_name])
         pass
+
+    async def _run_command(self, *cmd, check: bool = False) -> Tuple[str, str, int]:
+        """Run a shell command asynchronously."""
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+        if check and process.returncode != 0:
+            raise RuntimeError(
+                f"Command {' '.join(cmd)} failed with {process.returncode}: {stderr.decode().strip()}"
+            )
+        return stdout.decode(), stderr.decode(), process.returncode

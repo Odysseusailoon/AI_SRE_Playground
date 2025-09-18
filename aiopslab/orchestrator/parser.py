@@ -46,9 +46,16 @@ class ResponseParser:
         """
         outputlines = response.split("\n")
         indexlines = [i for i, line in enumerate(outputlines) if "```" in line]
-        if len(indexlines) < 2:
-            return ""
-        return "\n".join(outputlines[indexlines[0] + 1 : indexlines[1]])
+        if len(indexlines) >= 2:
+            return "\n".join(outputlines[indexlines[0] + 1 : indexlines[1]])
+
+        import re
+
+        match = re.search(r"```(?:[a-zA-Z]+)?\s*(.*?)```", response, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+
+        return ""
 
     def extract_context(self, response: str) -> list:
         """Extract context outside of a code block.

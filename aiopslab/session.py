@@ -9,6 +9,7 @@ import json
 import wandb
 from pydantic import BaseModel
 
+from pathlib import Path
 from aiopslab.paths import RESULTS_DIR
 
 
@@ -28,7 +29,7 @@ class Session:
         self.start_time = None
         self.end_time = None
         self.agent_name = None
-        self.results_dir = results_dir
+        self.results_dir = Path(results_dir) if results_dir else None
 
     def set_problem(self, problem, pid=None):
         """Set the problem instance for the session.

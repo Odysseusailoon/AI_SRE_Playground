@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 
 from .config.settings import settings
 from .config.logging import get_logger
-from .models import init_db, close_db
+from .models import init_db, close_db, async_session
 from .api import tasks, workers, workers_internal, health, llm_conversations
 from .middleware.error_handler import error_handler_middleware
 from .middleware.request_id import request_id_middleware
@@ -56,12 +56,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
 async def check_timeouts_periodically():
     """Background task to check for timed out tasks."""
-    from .models import get_db
     from .services.task_service import TaskService
 
     while True:
         try:
-            async with get_db() as session:
+            async with async_session() as session:
                 service = TaskService(session)
                 timeout_tasks = await service.check_timeouts()
 

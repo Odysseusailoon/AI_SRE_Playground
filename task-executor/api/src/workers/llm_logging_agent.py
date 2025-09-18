@@ -1,6 +1,7 @@
 """Agent wrapper to capture LLM conversations."""
 
 import json
+import inspect
 from datetime import datetime
 from typing import Any, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,12 +49,9 @@ class LLMLoggingAgent:
 
             # Get the actual response from the base agent
             # Handle both sync and async agents
-            if hasattr(self.base_agent.get_action, '__call__'):
-                # Synchronous agent
-                response = self.base_agent.get_action(state)
-            else:
-                # Async agent
-                response = await self.base_agent.get_action(state)
+            response = self.base_agent.get_action(state)
+            if inspect.isawaitable(response):
+                response = await response
 
             # Parse the response to extract any tool calls
             tool_calls = self._extract_tool_calls(response)

@@ -50,7 +50,7 @@ class WorkerManager:
         """Start a single worker as a background task."""
         # Create executor (using LLM executor for better logging)
         # We'll pass the session when executing tasks
-        executor = TaskExecutor(worker_id, backend_type="internal")
+        executor = TaskExecutor(worker_id, backend_type="orchestrator")
         self.executors[worker_id] = executor
 
         # Register worker in database
@@ -61,7 +61,7 @@ class WorkerManager:
 
                 worker_data = WorkerRegister(
                     worker_id=worker_id.replace("-internal", "-kind"),  # Match expected pattern
-                    backend_type="internal",
+                    backend_type="orchestrator",
                     capabilities={
                         "max_parallel_tasks": 1,
                         "supported_problems": []

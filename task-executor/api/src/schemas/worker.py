@@ -82,7 +82,12 @@ class WorkerResponse(BaseModel):
 
     current_task_id: Optional[UUID] = Field(None, description="Currently executing task")
     capabilities: Dict[str, Any] = Field(..., description="Worker capabilities")
-    metadata: Dict[str, Any] = Field(..., description="Worker metadata")
+    metadata: Dict[str, Any] = Field(
+        ...,
+        description="Worker metadata",
+        validation_alias="worker_metadata",
+        serialization_alias="metadata"
+    )
 
     tasks_completed: int = Field(..., description="Total completed tasks")
     tasks_failed: int = Field(..., description="Total failed tasks")
@@ -90,6 +95,7 @@ class WorkerResponse(BaseModel):
 
     model_config = ConfigDict(
         from_attributes=True,
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "id": "worker-001-kind",

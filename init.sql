@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 -- Create custom types
-CREATE TYPE task_status AS ENUM ('pending', 'running', 'completed', 'failed', 'timeout');
+CREATE TYPE task_status AS ENUM ('pending', 'running', 'completed', 'failed', 'timeout', 'cancelled');
 CREATE TYPE worker_status AS ENUM ('idle', 'busy', 'offline');
 CREATE TYPE log_level AS ENUM ('debug', 'info', 'warning', 'error', 'critical');
 
