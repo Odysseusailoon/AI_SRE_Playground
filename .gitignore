@@ -362,3 +362,5 @@ aiopslab/config.yml
 scripts/ansible/inventory.yml
 
 tmp/
+
+!task-executor/api/src/lib
