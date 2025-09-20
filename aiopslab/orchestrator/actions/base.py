@@ -4,16 +4,20 @@
 """Base class for task actions."""
 
 import os
-import pandas as pd
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
+
+import pandas as pd
+
 from aiopslab.utils.actions import action, read, write
 from aiopslab.service.kubectl import KubeCtl
 from aiopslab.service.dock import Docker
 from aiopslab.service.shell import Shell
 
-# from aiopslab.observer import initialize_pod_and_service_lists
-from aiopslab.observer.metric_api import PrometheusAPI
-from aiopslab.observer.trace_api import TraceAPI
+if TYPE_CHECKING:  # pragma: no cover - only used for type checking
+    # Import lazily to avoid loading Kubernetes configuration during module import in tests
+    from aiopslab.observer.metric_api import PrometheusAPI
+    from aiopslab.observer.trace_api import TraceAPI
 
 
 class TaskActions:
@@ -103,6 +107,8 @@ class TaskActions:
         prometheus_url = (
             "http://localhost:32000"  # Replace with your Prometheus server URL
         )
+        from aiopslab.observer.metric_api import PrometheusAPI
+
         prometheus_api = PrometheusAPI(prometheus_url, namespace)
         prometheus_api.initialize_pod_and_service_lists(namespace)
 
@@ -155,6 +161,8 @@ class TaskActions:
         """
         # jaeger_url = "http://localhost:16686"
         print(namespace)
+        from aiopslab.observer.trace_api import TraceAPI
+
         trace_api = TraceAPI(namespace=namespace)
 
         end_time = datetime.now()

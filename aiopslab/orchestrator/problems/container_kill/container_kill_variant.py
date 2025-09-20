@@ -7,7 +7,12 @@ from typing import Any, Dict
 import yaml
 from aiopslab.orchestrator.tasks import DetectionTask, LocalizationTask
 from aiopslab.orchestrator.tasks.variant_task import VariantTask
-from aiopslab.orchestrator.variant_generator import ServiceVariantGenerator, ConfigVariantGenerator, CompositeVariantGenerator
+from aiopslab.orchestrator.variant_generator import (
+    VariantGenerator,
+    ServiceVariantGenerator,
+    ConfigVariantGenerator,
+    CompositeVariantGenerator,
+)
 from aiopslab.orchestrator.evaluators.quantitative import *
 from aiopslab.service.kubectl import KubeCtl
 from aiopslab.service.apps.hotelres import HotelReservation
@@ -58,7 +63,6 @@ class ContainerKillVariantBase(VariantTask):
             # We'll use ConfigVariantGenerator with a special handling
             class ServiceContainerVariantGenerator(VariantGenerator):
                 def __init__(self, base_config, pairs):
-                    from aiopslab.orchestrator.variant_generator import VariantGenerator
                     super().__init__(base_config)
                     self.pairs = pairs
                     self.used_indices = set()

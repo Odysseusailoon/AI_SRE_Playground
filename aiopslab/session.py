@@ -33,6 +33,9 @@ class Session:
         self.results_dir = results_dir
         self.print_logs = []
         self.original_stdout = None
+        self.variant_summary: str | None = None
+        self.agent_outcome: str | None = None
+        self.retry_count: int = 0
 
     def set_problem(self, problem, pid=None):
         """Set the problem instance for the session.
@@ -52,13 +55,42 @@ class Session:
         """
         self.solution = solution
 
-    def set_results(self, results):
-        """Set the results of the session.
+    def set_results(self, results, *, variant_summary=None, agent_outcome=None, retry_count=None):
+        """Set the results of the session and capture variant metadata."""
 
-        Args:
-            results (Any): The results of the session.
-        """
-        self.results = results
+        self.results = results or {}
+
+        if retry_count is not None:
+            self.retry_count = retry_count
+        elif getattr(self, "retry_count", None) is None:
+            self.retry_count = 0
+
+        summary = variant_summary
+        if summary is None and getattr(self, "problem", None) is not None:
+            if hasattr(self.problem, "get_variant_summary"):
+                try:
+                    summary = self.problem.get_variant_summary()
+                except Exception:
+                    summary = None
+
+        if summary is None and self.variant_summary is None:
+            summary = "N/A"
+
+        if summary is not None:
+            self.variant_summary = summary
+
+        outcome = agent_outcome
+        if outcome is None and isinstance(self.results, dict):
+            success_flag = self.results.get("success")
+            if success_flag is True:
+                outcome = "success"
+            elif success_flag is False:
+                outcome = "failure"
+
+        if outcome is None:
+            outcome = self.agent_outcome if self.agent_outcome is not None else "unknown"
+
+        self.agent_outcome = outcome
 
     def set_agent(self, agent_name):
         """Set the agent name for the session.
@@ -94,6 +126,8 @@ class Session:
     def start(self):
         """Start the session and begin capturing print output."""
         self.start_time = time.time()
+        self.variant_summary = None
+        self.agent_outcome = None
         self.start_print_capture()
 
     def end(self):
@@ -139,6 +173,9 @@ class Session:
             "end_time": self.end_time,
             "trace": [item.model_dump() for item in self.history],
             "results": self.results,
+            "variant_summary": self.variant_summary,
+            "agent_outcome": self.agent_outcome,
+            "retry_count": self.retry_count,
         }
 
         return summary
@@ -185,3 +222,6 @@ class Session:
         self.end_time = data.get("end_time")
         self.results = data.get("results")
         self.history = [SessionItem.model_validate(item) for item in data.get("trace")]
+        self.variant_summary = data.get("variant_summary")
+        self.agent_outcome = data.get("agent_outcome")
+        self.retry_count = data.get("retry_count", 0)

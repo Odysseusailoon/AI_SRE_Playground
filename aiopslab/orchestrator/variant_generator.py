@@ -4,6 +4,7 @@
 """Variant generator for creating task variations."""
 
 from abc import ABC, abstractmethod
+from itertools import product
 from typing import List, Dict, Any
 import random
 
@@ -154,23 +155,26 @@ class ConfigVariantGenerator(VariantGenerator):
         
     def generate_variants(self, num_variants: int = 3) -> List[Dict[str, Any]]:
         """Generate configuration variants."""
-        variants = []
-        all_keys = list(self.config_variants.keys())
-        
-        for i in range(min(num_variants, len(all_keys) * max(len(v) for v in self.config_variants.values()))):
+        variants: List[Dict[str, Any]] = []
+        keys = list(self.config_variants.keys())
+        value_options = [self.config_variants[key] for key in keys]
+
+        seen = set()
+        for combination in product(*value_options):
             variant = self.base_config.copy()
-            
-            # Select a config key to vary
-            key_idx = i % len(all_keys)
-            key = all_keys[key_idx]
-            values = self.config_variants[key]
-            
-            # Select a value for this key
-            value_idx = i // len(all_keys)
-            if value_idx < len(values):
-                variant[key] = values[value_idx]
-                variants.append(variant)
-                
+            for key, value in zip(keys, combination):
+                variant[key] = value
+
+            fingerprint = tuple(sorted(variant.items()))
+            if fingerprint in seen:
+                continue
+
+            seen.add(fingerprint)
+            variants.append(variant)
+
+            if len(variants) >= num_variants:
+                break
+
         return variants
 
 
@@ -223,20 +227,40 @@ class NumericVariantGenerator(VariantGenerator):
 
 class CompositeVariantGenerator(VariantGenerator):
     """Combine multiple variant generators."""
-    
+
     def __init__(self, generators: List[VariantGenerator]):
+        if not generators:
+            raise ValueError("CompositeVariantGenerator requires at least one generator")
+
+        # Merge base configurations so VariantTask.reset_to_base works across generators
+        merged_base_config: Dict[str, Any] = {}
+        for generator in generators:
+            if not hasattr(generator, "base_config"):
+                raise AttributeError("All generators must expose a base_config for composition")
+            merged_base_config.update(generator.base_config)
+
+        super().__init__(merged_base_config)
         self.generators = generators
-        
+
     def generate_variants(self, num_variants: int = 3) -> List[Dict[str, Any]]:
         """
         Generate composite variants by combining multiple generators.
         """
-        all_variants = []
-        
+        all_variants: List[Dict[str, Any]] = []
+
         for generator in self.generators:
             variants = generator.generate_variants(num_variants)
             all_variants.extend(variants)
-            
+
+        # Deduplicate composite variants so each configuration is unique
+        unique_variants: List[Dict[str, Any]] = []
+        seen = set()
+        for variant in all_variants:
+            key = tuple(sorted(variant.items()))
+            if key not in seen:
+                seen.add(key)
+                unique_variants.append(variant)
+
         # Shuffle and limit to requested number
-        random.shuffle(all_variants)
-        return all_variants[:num_variants]
+        random.shuffle(unique_variants)
+        return unique_variants[:num_variants]

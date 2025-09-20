@@ -192,7 +192,36 @@ class Evaluator:
             )
             self.sprint.result(results)
         
-        self.session.set_results(results)
+        variant_summary = None
+        if hasattr(self.session.problem, "get_variant_summary"):
+            try:
+                variant_summary = self.session.problem.get_variant_summary()
+            except Exception:
+                variant_summary = None
+
+        success_flag = None
+        if isinstance(results, dict):
+            success_flag = results.get("success")
+
+        if success_flag is None:
+            if env_response == SubmissionStatus.VALID_SUBMISSION:
+                success_flag = True
+            elif env_response == SubmissionStatus.INVALID_SUBMISSION:
+                success_flag = False
+
+        if success_flag is True:
+            agent_outcome = "success"
+        elif success_flag is False:
+            agent_outcome = "failure"
+        else:
+            agent_outcome = "unknown"
+
+        self.session.set_results(
+            results,
+            variant_summary=variant_summary,
+            agent_outcome=agent_outcome,
+            retry_count=getattr(self.session, "retry_count", 0),
+        )
         self.session.to_json()
         self.session.problem.recover_fault()
         

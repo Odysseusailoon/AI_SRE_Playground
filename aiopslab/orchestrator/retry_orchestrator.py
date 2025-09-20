@@ -69,7 +69,10 @@ class RetryOrchestrator:
         for attempt in range(self.max_retries + 1):
             print(f"\n{'='*60}")
             print(f"Attempt {attempt + 1}/{self.max_retries + 1}")
-            
+
+            if isinstance(self.orchestrator.session, Session):
+                self.orchestrator.session.retry_count = attempt
+
             # Apply variant if this is a retry and variants are enabled
             if attempt > 0 and self.enable_variants:
                 if isinstance(self.orchestrator.session.problem, VariantTask):

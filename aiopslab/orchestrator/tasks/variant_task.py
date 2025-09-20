@@ -18,7 +18,9 @@ class VariantTask(Task):
         Args:
             variant_generator: Optional variant generator for creating task variations
         """
-        super().__init__()
+        # Call Task.__init__ directly to avoid invoking other mixins in the MRO
+        # that expect additional initialization arguments.
+        Task.__init__(self)
         self.variant_generator = variant_generator
         self.current_variant = None
         self.variant_history = []
