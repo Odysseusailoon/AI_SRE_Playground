@@ -62,7 +62,7 @@ async def get_agents():
 
 @app.post("/simulate", response_model=SimulationResponse)
 async def simulate(request: SimulationRequest):
-    """Run a simulation"""
+    """Run a simulation with configurable mode"""
     try:
         # FIX: Set proper ground_truth_dir path
         from pathlib import Path
@@ -79,8 +79,75 @@ async def simulate(request: SimulationRequest):
             max_tokens=request.max_tokens
         )
         
-        # Run simulation with proper ground truth directory
-        result = service.simulate(sim_request, ground_truth_dir=ground_truth_dir)
+        # Get simulation mode from request (default to auto)
+        simulation_mode = getattr(request, 'simulation_mode', 'auto')
+        
+        # Run simulation with configurable mode
+        result = service.simulate(sim_request, ground_truth_dir=ground_truth_dir, simulation_mode=simulation_mode)
+        
+        return SimulationResponse(
+            agent=result.agent,
+            session_id=result.session_id,
+            problem_id=result.problem_id,
+            start_time=result.start_time,
+            end_time=result.end_time,
+            trace=result.trace,
+            results=result.results
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/simulate/real", response_model=SimulationResponse)
+async def simulate_real(request: SimulationRequest):
+    """Force real simulation"""
+    try:
+        from pathlib import Path
+        ground_truth_dir = Path("/home/riftuser/AI_SRE_Playground/ground_truth")
+        
+        sim_request = service.SimulationRequest(
+            problem_id=request.problem_id,
+            agent_name=request.agent_name,
+            max_steps=request.max_steps,
+            model=request.model,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            max_tokens=request.max_tokens
+        )
+        
+        # Force real simulation
+        result = service.simulate(sim_request, ground_truth_dir=ground_truth_dir, simulation_mode="real")
+        
+        return SimulationResponse(
+            agent=result.agent,
+            session_id=result.session_id,
+            problem_id=result.problem_id,
+            start_time=result.start_time,
+            end_time=result.end_time,
+            trace=result.trace,
+            results=result.results
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/simulate/mock", response_model=SimulationResponse)
+async def simulate_mock(request: SimulationRequest):
+    """Force mock simulation"""
+    try:
+        from pathlib import Path
+        ground_truth_dir = Path("/home/riftuser/AI_SRE_Playground/ground_truth")
+        
+        sim_request = service.SimulationRequest(
+            problem_id=request.problem_id,
+            agent_name=request.agent_name,
+            max_steps=request.max_steps,
+            model=request.model,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            max_tokens=request.max_tokens
+        )
+        
+        # Force mock simulation
+        result = service.simulate(sim_request, ground_truth_dir=ground_truth_dir, simulation_mode="mock")
         
         return SimulationResponse(
             agent=result.agent,
