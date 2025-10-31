@@ -15,6 +15,8 @@ Run locally with:
 from __future__ import annotations
 
 import json
+import logging
+import os
 from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional, Tuple
@@ -23,6 +25,11 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Path as PathParam
 from pydantic import BaseModel, Field, field_validator
 
+logger = logging.getLogger(__name__)
+
+RESULTS_ROOT = Path(
+    os.getenv("ECHO_RESULTS_DIR", Path(__file__).resolve().parent.parent / "res")
+)
 
 app = FastAPI(
     title="Mock Echo Callback Server",
@@ -235,12 +242,70 @@ class JobRecord:
             }
         return payload
 
+    def as_results_payload(self) -> Dict[str, Any]:
+        """Generate complete results payload for persistence."""
+        payload = {
+            "job_id": self.job_id,
+            "state": self.state,
+            "runs": self.last_results or self.collect_results(),
+        }
+        if self.state == "failed" and self.failure_reason:
+            payload["failure_reason"] = self.failure_reason
+            if self.failure_partial is not None:
+                payload["partial"] = self.failure_partial
+        return payload
+
 
 def _get_job(job_id: str) -> JobRecord:
     job = _JOBS.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
     return job
+
+
+def _persist_run_payload(job: JobRecord, data: JobEventRequest) -> None:
+    """Persist individual run payload to disk (type1)."""
+    if data.event.lower() != "run_finished":
+        return
+    if not data.payload:
+        return
+    
+    problem_id = data.problem_id or "unknown"
+    run_index = data.run_index if data.run_index is not None else 0
+    target_dir = RESULTS_ROOT / "type1" / problem_id / job.job_id
+    
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_path = target_dir / f"run_{run_index}.json"
+        target_path.write_text(
+            json.dumps(data.payload, ensure_ascii=False, indent=2), 
+            encoding="utf-8"
+        )
+        logger.info(f"Persisted run payload: {target_path}")
+    except Exception as exc:
+        logger.warning(f"Failed to persist run payload for job {job.job_id}: {exc}")
+
+
+def _persist_job_results(job: JobRecord) -> None:
+    """Persist complete job results to disk (type2)."""
+    if not job.problems:
+        problem_bucket = "unknown"
+    else:
+        problem_ids = list(job.problems.keys())
+        problem_bucket = problem_ids[0] if len(problem_ids) == 1 else "multi"
+    
+    target_dir = RESULTS_ROOT / "type2" / problem_bucket
+    
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_path = target_dir / f"{job.job_id}.json"
+        target_path.write_text(
+            json.dumps(job.as_results_payload(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        logger.info(f"Persisted job results: {target_path}")
+    except Exception as exc:
+        logger.warning(f"Failed to persist job results for job {job.job_id}: {exc}")
 
 
 @app.post("/jobs", response_model=JobCreateResponse)
@@ -283,15 +348,18 @@ def _handle_job_event(job: JobRecord, data: JobEventRequest) -> None:
             problem_state.mark_run_finished(data.run_index, data.payload)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _persist_run_payload(job, data)
         job.mark_running()
         return
 
     if event_name == "job_finished":
         job.mark_done()
+        _persist_job_results(job)
         return
 
     if event_name == "job_failed":
         job.mark_failed(data.reason, data.partial)
+        _persist_job_results(job)
         return
 
     # Other events are simply recorded; no state mutation.
