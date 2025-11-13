@@ -1,0 +1,22 @@
+# Kubernetes control node
+k8s_host: kind
+# kind cluster name
+kind_cluster_name: kind
+
+k8s_user: ecs-user
+
+# ssh key path
+ssh_key_path: ~/.ssh/id_rsa
+
+# Directory where data files are stored
+data_dir: data
+
+# Flag to enable/disable qualitative evaluation (makes LLM calls)
+qualitative_eval: false
+
+# Flag to enable/disable supervisor evaluation for detection tasks (makes LLM calls)
+supervisor_eval: false
+
+# Flag to enable/disable printing the session
+print_session: false
+
