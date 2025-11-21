@@ -3,6 +3,8 @@
 
 """Interface to the social network application from DeathStarBench"""
 
+import time
+
 from aiopslab.service.helm import Helm
 from aiopslab.service.kubectl import KubeCtl
 from aiopslab.service.apps.base import Application
@@ -69,5 +71,5 @@ class SocialNetwork(Application):
     def cleanup(self):
         """Delete the entire namespace for the social network application."""
         Helm.uninstall(**self.helm_configs)
-        # self.kubectl.delete_namespace(self.namespace)
-        # time.sleep(15)
+        self.kubectl.delete_namespace(self.namespace)
+        time.sleep(15)

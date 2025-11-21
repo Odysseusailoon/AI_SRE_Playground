@@ -891,6 +891,12 @@ prometheus-pushgateway:
   # Optional service annotations
   serviceAnnotations:
     prometheus.io/probe: pushgateway
+  
+  # 镜像配置 - 使用 v1.6.2 (兼容 v1.6.0)
+  image:
+    repository: quay.io/prometheus/pushgateway
+    tag: v1.6.2
+    pullPolicy: IfNotPresent
 
 prometheus-blackbox-exporter:
   enabled: false

@@ -177,7 +177,8 @@ class Session:
         results_dir = Path(self.results_dir) if self.results_dir else RESULTS_DIR
         results_dir.mkdir(parents=True, exist_ok=True)
 
-        filename_base = f"{self.session_id}_{self.start_time}"
+        # Use problem_id as filename if available, otherwise use session_id
+        filename_base = self.pid if self.pid else f"{self.session_id}_{self.start_time}"
         
         # Save JSON file
         with open(results_dir / f"{filename_base}.json", "w") as f:

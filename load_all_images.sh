@@ -31,6 +31,7 @@ ALL_IMAGES=(
     "quay.io/prometheus/pushgateway:v1.6.2"
     "quay.io/prometheus-operator/prometheus-config-reloader:v0.67.0"
     "registry.cn-wulanchabu.aliyuncs.com/moge1/kube-state-metrics:v2.3.0"
+    "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.10.1"
     
     # OpenEBS (存储 - 所有任务必需)
     "openebs/provisioner-localpv:3.4.0"
@@ -61,8 +62,7 @@ ALL_IMAGES=(
 )
 
 # 目标集群
-# CLUSTERS=("kind" "kind1" "kind2" "kind3")  # 原有集群
-CLUSTERS=("kind4")  # 测试新集群
+CLUSTERS=("kind1" "kind2" "kind3" "kind4" "kind5" "kind6" "kind7" "kind8" "kind9" "kind10")
 
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}1️⃣  检查宿主机镜像...${NC}"
@@ -191,13 +191,65 @@ for cluster in "${CLUSTERS[@]}"; do
     echo ""
 done
 
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${YELLOW}4️⃣  加载 socialNetwork 源代码到集群...${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+# 检查是否有源代码参考集群
+SOURCE_CLUSTER=""
+for cluster in kind kind1 kind2 kind3; do
+    if docker exec ${cluster}-control-plane test -d /var/lib/kubelet/hostpath/socialNetwork 2>/dev/null; then
+        SOURCE_CLUSTER=$cluster
+        echo -e "${GREEN}✅ 找到源代码参考集群: ${SOURCE_CLUSTER}${NC}"
+        break
+    fi
+done
+
+if [ -z "$SOURCE_CLUSTER" ]; then
+    echo -e "${YELLOW}⚠️  未找到包含 socialNetwork 源代码的集群，跳过此步骤${NC}"
+else
+    # 导出源代码
+    echo -ne "${GREEN}📦 从 ${SOURCE_CLUSTER} 导出源代码...${NC} "
+    docker exec ${SOURCE_CLUSTER}-control-plane bash -c "cd /var/lib/kubelet/hostpath && tar czf /socialNetwork.tar.gz socialNetwork" 2>/dev/null
+    docker cp ${SOURCE_CLUSTER}-control-plane:/socialNetwork.tar.gz /tmp/socialNetwork_temp.tar.gz 2>/dev/null
+    
+    if [ -f /tmp/socialNetwork_temp.tar.gz ]; then
+        echo -e "${GREEN}✅${NC}"
+        
+        # 加载到所有集群
+        for cluster in "${CLUSTERS[@]}"; do
+            # 检查是否已有源代码
+            if docker exec ${cluster}-control-plane test -d /var/lib/kubelet/hostpath/socialNetwork 2>/dev/null; then
+                echo -e "  ${BLUE}⏭️  ${cluster}:${NC} 已有源代码，跳过"
+            else
+                echo -ne "  ${GREEN}📥 ${cluster}:${NC} 加载中... "
+                docker cp /tmp/socialNetwork_temp.tar.gz ${cluster}-control-plane:/tmp/socialNetwork.tar.gz 2>/dev/null
+                docker exec ${cluster}-control-plane bash -c "mkdir -p /var/lib/kubelet/hostpath && cd /var/lib/kubelet/hostpath && tar xzf /tmp/socialNetwork.tar.gz" 2>/dev/null
+                
+                if docker exec ${cluster}-control-plane test -d /var/lib/kubelet/hostpath/socialNetwork/media-frontend/lua-scripts 2>/dev/null; then
+                    echo -e "${GREEN}✅${NC}"
+                else
+                    echo -e "${RED}❌${NC}"
+                fi
+            fi
+        done
+        
+        rm -f /tmp/socialNetwork_temp.tar.gz
+    else
+        echo -e "${RED}❌ 导出失败${NC}"
+    fi
+fi
+
+echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}🎉 集群配置完成！${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${BLUE}💡 提示:${NC}"
-echo -e "  • 镜像已加载完成 (27个)"
+echo -e "  • 镜像已加载完成"
 echo -e "  • OpenEBS 已部署并就绪"
+echo -e "  • socialNetwork 源代码已加载"
 echo -e "  • Prometheus 将由 AIOpsLab 自动部署"
 echo -e "  • 集群已就绪，可以运行任务"
 echo ""

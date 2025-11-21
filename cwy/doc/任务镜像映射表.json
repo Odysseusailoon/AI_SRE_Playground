@@ -1,0 +1,275 @@
+{
+  "metadata": {
+    "description": "86个任务的镜像需求完整映射表",
+    "generated_date": "2025-11-20",
+    "total_tasks": 86,
+    "applications": ["Social Network", "Hotel Reservation", "Astronomy Shop"]
+  },
+  
+  "base_images": {
+    "description": "所有任务都需要的基础设施镜像",
+    "required_for": "所有86个任务",
+    "images": [
+      {
+        "category": "OpenEBS",
+        "images": [
+          "openebs/provisioner-localpv:3.4.0",
+          "openebs/linux-utils:3.5.0",
+          "openebs/node-disk-exporter:2.1.0",
+          "openebs/node-disk-operator:2.1.0",
+          "openebs/node-disk-manager:2.1.0"
+        ],
+        "count": 5,
+        "purpose": "持久化存储支持"
+      },
+      {
+        "category": "Prometheus",
+        "images": [
+          "quay.io/prometheus/blackbox-exporter:v0.24.0",
+          "quay.io/prometheus/node-exporter:v1.6.1",
+          "quay.io/prometheus-operator/prometheus-config-reloader:v0.67.0",
+          "quay.io/prometheus/prometheus:v2.47.2",
+          "quay.io/prometheus/pushgateway:v1.6.2",
+          "registry.cn-wulanchabu.aliyuncs.com/moge1/kube-state-metrics:v2.3.0",
+          "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.10.1"
+        ],
+        "count": 7,
+        "purpose": "监控和可观测性"
+      },
+      {
+        "category": "Chaos Mesh",
+        "images": [
+          "ghcr.io/chaos-mesh/chaos-mesh:v2.6.2",
+          "ghcr.io/chaos-mesh/chaos-daemon:v2.6.2",
+          "ghcr.io/chaos-mesh/chaos-dashboard:v2.6.2",
+          "ghcr.io/chaos-mesh/chaos-coredns:v0.2.6"
+        ],
+        "count": 4,
+        "purpose": "故障注入"
+      }
+    ],
+    "total_base_images": 16
+  },
+
+  "application_images": {
+    "social_network": {
+      "description": "Social Network应用镜像",
+      "images": [
+        "deathstarbench/social-network-microservices:latest",
+        "jaegertracing/all-in-one:1.57",
+        "memcached:1.6.7",
+        "redis:6.2.4",
+        "mongo:4.4.6",
+        "yg397/openresty-thrift:xenial",
+        "yg397/media-frontend:xenial",
+        "alpine/git:latest",
+        "deathstarbench/wrk2-client:latest"
+      ],
+      "count": 9
+    },
+    "hotel_reservation": {
+      "description": "Hotel Reservation应用镜像",
+      "images": [
+        "deathstarbench/hotel-reservation:latest",
+        "hashicorp/consul:latest",
+        "igorrudyk1/hotel_reserv_frontend_single_node:latest",
+        "igorrudyk1/hotel_reserv_geo_single_node:latest",
+        "igorrudyk1/hotel_reserv_profile_single_node:latest",
+        "igorrudyk1/hotel_reserv_rate_single_node:latest",
+        "igorrudyk1/hotel_reserv_recommendation_single_node:latest",
+        "igorrudyk1/hotel_reserv_reserve_single_node:latest",
+        "igorrudyk1/hotel_reserv_search_single_node:latest",
+        "igorrudyk1/hotel_reserv_user_single_node:latest",
+        "yinfangchen/hotelreservation:latest",
+        "memcached:latest",
+        "memcached:1.6.7",
+        "mongo:4.4.6",
+        "deathstarbench/wrk2-client:latest"
+      ],
+      "count": 15
+    },
+    "astronomy_shop": {
+      "description": "Astronomy Shop (OpenTelemetry Demo)应用镜像",
+      "images": [
+        "ghcr.io/open-telemetry/demo:1.11.2",
+        "otel/opentelemetry-collector-contrib:0.118.0",
+        "busybox:latest",
+        "redis:7.0-alpine",
+        "bitnami/kafka:latest",
+        "postgres:16"
+      ],
+      "count": 6,
+      "note": "OpenTelemetry Demo使用单一镜像包含多个微服务"
+    }
+  },
+
+  "task_mappings": {
+    "social_network_tasks": {
+      "description": "使用Social Network应用的任务",
+      "required_images": "base_images + social_network (16 + 9 = 25个镜像)",
+      "tasks": [
+        "k8s_target_port-misconfig-detection-1",
+        "k8s_target_port-misconfig-detection-2",
+        "k8s_target_port-misconfig-detection-3",
+        "k8s_target_port-misconfig-localization-1",
+        "k8s_target_port-misconfig-localization-2",
+        "k8s_target_port-misconfig-localization-3",
+        "k8s_target_port-misconfig-analysis-1",
+        "k8s_target_port-misconfig-analysis-2",
+        "k8s_target_port-misconfig-analysis-3",
+        "k8s_target_port-misconfig-mitigation-1",
+        "k8s_target_port-misconfig-mitigation-2",
+        "k8s_target_port-misconfig-mitigation-3",
+        "auth_miss_mongodb-detection-1",
+        "auth_miss_mongodb-localization-1",
+        "auth_miss_mongodb-analysis-1",
+        "auth_miss_mongodb-mitigation-1",
+        "scale_pod_zero_social_net-detection-1",
+        "scale_pod_zero_social_net-localization-1",
+        "scale_pod_zero_social_net-analysis-1",
+        "scale_pod_zero_social_net-mitigation-1",
+        "assign_to_non_existent_node_social_net-detection-1",
+        "assign_to_non_existent_node_social_net-localization-1",
+        "assign_to_non_existent_node_social_net-analysis-1",
+        "assign_to_non_existent_node_social_net-mitigation-1",
+        "noop_detection_social_network-1"
+      ],
+      "count": 25
+    },
+    
+    "hotel_reservation_tasks": {
+      "description": "使用Hotel Reservation应用的任务",
+      "required_images": "base_images + hotel_reservation (16 + 15 = 31个镜像)",
+      "tasks": [
+        "revoke_auth_mongodb-detection-1",
+        "revoke_auth_mongodb-detection-2",
+        "revoke_auth_mongodb-localization-1",
+        "revoke_auth_mongodb-localization-2",
+        "revoke_auth_mongodb-analysis-1",
+        "revoke_auth_mongodb-analysis-2",
+        "revoke_auth_mongodb-mitigation-1",
+        "revoke_auth_mongodb-mitigation-2",
+        "user_unregistered_mongodb-detection-1",
+        "user_unregistered_mongodb-detection-2",
+        "user_unregistered_mongodb-localization-1",
+        "user_unregistered_mongodb-localization-2",
+        "user_unregistered_mongodb-analysis-1",
+        "user_unregistered_mongodb-analysis-2",
+        "user_unregistered_mongodb-mitigation-1",
+        "user_unregistered_mongodb-mitigation-2",
+        "misconfig_app_hotel_res-detection-1",
+        "misconfig_app_hotel_res-localization-1",
+        "misconfig_app_hotel_res-analysis-1",
+        "misconfig_app_hotel_res-mitigation-1",
+        "container_kill-detection",
+        "container_kill-localization",
+        "container_kill-analysis",
+        "container_kill-mitigation",
+        "pod_failure_hotel_res-detection-1",
+        "pod_failure_hotel_res-localization-1",
+        "pod_failure_hotel_res-analysis-1",
+        "pod_failure_hotel_res-mitigation-1",
+        "pod_kill_hotel_res-detection-1",
+        "pod_kill_hotel_res-localization-1",
+        "pod_kill_hotel_res-analysis-1",
+        "pod_kill_hotel_res-mitigation-1",
+        "network_loss_hotel_res-detection-1",
+        "network_loss_hotel_res-localization-1",
+        "network_loss_hotel_res-analysis-1",
+        "network_loss_hotel_res-mitigation-1",
+        "network_delay_hotel_res-detection-1",
+        "network_delay_hotel_res-localization-1",
+        "network_delay_hotel_res-analysis-1",
+        "network_delay_hotel_res-mitigation-1",
+        "redeploy_without_PV-detection-1",
+        "redeploy_without_PV-analysis-1",
+        "redeploy_without_PV-mitigation-1",
+        "wrong_bin_usage-detection-1",
+        "wrong_bin_usage-localization-1",
+        "wrong_bin_usage-analysis-1",
+        "wrong_bin_usage-mitigation-1",
+        "noop_detection_hotel_reservation-1"
+      ],
+      "count": 48
+    },
+    
+    "astronomy_shop_tasks": {
+      "description": "使用Astronomy Shop应用的任务",
+      "required_images": "base_images + astronomy_shop (16 + 6 = 22个镜像)",
+      "tasks": [
+        "astronomy_shop_ad_service_failure-detection-1",
+        "astronomy_shop_ad_service_failure-localization-1",
+        "astronomy_shop_ad_service_high_cpu-detection-1",
+        "astronomy_shop_ad_service_high_cpu-localization-1",
+        "astronomy_shop_ad_service_manual_gc-detection-1",
+        "astronomy_shop_ad_service_manual_gc-localization-1",
+        "astronomy_shop_cart_service_failure-detection-1",
+        "astronomy_shop_cart_service_failure-localization-1",
+        "astronomy_shop_image_slow_load-detection-1",
+        "astronomy_shop_image_slow_load-localization-1",
+        "astronomy_shop_kafka_queue_problems-detection-1",
+        "astronomy_shop_kafka_queue_problems-localization-1",
+        "astronomy_shop_loadgenerator_flood_homepage-detection-1",
+        "astronomy_shop_loadgenerator_flood_homepage-localization-1",
+        "astronomy_shop_payment_service_failure-detection-1",
+        "astronomy_shop_payment_service_failure-localization-1",
+        "astronomy_shop_payment_service_unreachable-detection-1",
+        "astronomy_shop_payment_service_unreachable-localization-1",
+        "astronomy_shop_product_catalog_service_failure-detection-1",
+        "astronomy_shop_product_catalog_service_failure-localization-1",
+        "astronomy_shop_recommendation_service_cache_failure-detection-1",
+        "astronomy_shop_recommendation_service_cache_failure-localization-1",
+        "noop_detection_astronomy_shop-1"
+      ],
+      "count": 23
+    }
+  },
+
+  "optimization_strategies": {
+    "strategy_1_all_images": {
+      "description": "所有Kind加载所有镜像（当前方案）",
+      "images_per_kind": 47,
+      "images_breakdown": "16基础 + 9社交 + 15酒店 + 6天文（去重后~47个）",
+      "pros": ["简单", "所有Kind通用", "避免镜像缺失"],
+      "cons": ["浪费时间（每个Kind 25-30分钟）", "浪费存储"],
+      "适用场景": "快速部署，不在意时间和存储"
+    },
+    
+    "strategy_2_by_application": {
+      "description": "按应用分组加载镜像（优化方案）",
+      "kind_groups": [
+        {
+          "range": "kind1-30",
+          "application": "Social Network",
+          "images_count": 25,
+          "load_time": "10-15分钟"
+        },
+        {
+          "range": "kind31-65",
+          "application": "Hotel Reservation",
+          "images_count": 31,
+          "load_time": "15-20分钟"
+        },
+        {
+          "range": "kind66-86",
+          "application": "Astronomy Shop",
+          "images_count": 22,
+          "load_time": "10-12分钟"
+        }
+      ],
+      "pros": ["节省50%时间", "节省45%存储", "并行创建更快"],
+      "cons": ["Kind之间不通用", "需要维护映射表"],
+      "适用场景": "大规模部署，在意时间和资源"
+    }
+  },
+
+  "summary": {
+    "total_unique_images": 47,
+    "minimum_images_per_task": 22,
+    "maximum_images_per_task": 31,
+    "average_images_per_task": 26,
+    "storage_per_kind_all": "约15-20GB",
+    "storage_per_kind_optimized": "约8-12GB"
+  }
+}
+

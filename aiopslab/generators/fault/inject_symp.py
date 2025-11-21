@@ -17,12 +17,20 @@ class SymptomFaultInjector(FaultInjector):
         self.namespace = namespace
         self.kubectl = KubeCtl()
         self.kubectl.create_namespace_if_not_exist("chaos-mesh")
-        Helm.add_repo("chaos-mesh", "https://charts.chaos-mesh.org")
+        
+        # 检查 chaos-mesh 是否已经就绪
+        if self._is_chaos_mesh_ready():
+            print("Chaos Mesh is already running. Skipping installation.")
+            return
+        
+        # 如果未就绪，尝试安装（使用本地 Chart）
+        print("Chaos Mesh not found. Installing from local chart...")
+        from aiopslab.paths import BASE_DIR
+        local_chart = str(BASE_DIR / "infrastructure/chaos-mesh/chaos-mesh")
         chaos_configs = {
             "release_name": "chaos-mesh",
-            "chart_path": "chaos-mesh/chaos-mesh",
+            "chart_path": local_chart,
             "namespace": "chaos-mesh",
-            "version": "2.6.2",
         }
 
         container_runtime = self.kubectl.get_container_runtime()
@@ -38,6 +46,18 @@ class SymptomFaultInjector(FaultInjector):
             raise ValueError(f"Unsupported container runtime: {container_runtime}")
 
         Helm.install(**chaos_configs)
+    
+    def _is_chaos_mesh_ready(self) -> bool:
+        """检查 chaos-mesh 是否已经就绪"""
+        try:
+            # 检查关键pod是否在运行
+            result = self.kubectl.exec_command(
+                "kubectl get pods -n chaos-mesh -l app.kubernetes.io/component=controller-manager -o jsonpath='{.items[*].status.phase}'"
+            )
+            # 如果有Running的pod，说明已就绪
+            return "Running" in result
+        except Exception:
+            return False
 
     def create_chaos_experiment(self, experiment_yaml: dict, experiment_name: str):
         chaos_yaml_path = f"/tmp/{experiment_name}.yaml"

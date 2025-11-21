@@ -52,8 +52,11 @@ class Evaluator:
         if "Running" in result:
             print("OpenEBS is already running. Skipping installation.")
         else:
+            # Install OpenEBS (使用本地 YAML)
+            from aiopslab.paths import BASE_DIR
+            openebs_yaml = str(BASE_DIR / "infrastructure/openebs/openebs-operator.yaml")
             self.kubectl.exec_command(
-                "kubectl apply -f https://openebs.github.io/charts/openebs-operator.yaml"
+                f"kubectl apply -f {openebs_yaml}"
             )
             self.kubectl.exec_command(
                 "kubectl patch storageclass openebs-hostpath -p '{\"metadata\": {\"annotations\":{\"storageclass.kubernetes.io/is-default-class\":\"true\"}}}'"

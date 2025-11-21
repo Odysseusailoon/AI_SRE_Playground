@@ -1,0 +1,721 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openebs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openebs-maya-operator
+rules:
+- apiGroups: ["*"]
+  resources: ["nodes", "nodes/proxy"]
+  verbs: ["*"]
+- apiGroups: ["*"]
+  resources: ["namespaces", "services", "pods", "pods/exec", "deployments", "deployments/finalizers", "replicationcontrollers", "replicasets", "events", "endpoints", "configmaps", "secrets", "jobs", "cronjobs"]
+  verbs: ["*"]
+- apiGroups: ["*"]
+  resources: ["statefulsets", "daemonsets"]
+  verbs: ["*"]
+- apiGroups: ["*"]
+  resources: ["storageclasses", "persistentvolumeclaims", "persistentvolumes"]
+  verbs: ["*"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "watch", "list", "delete", "update", "create"]
+- apiGroups: ["openebs.io"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openebs-maya-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openebs-maya-operator
+subjects:
+- kind: ServiceAccount
+  name: openebs-maya-operator
+  namespace: openebs
+---
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"name":"openebs-localpv-provisioner","openebs.io/component-name":"openebs-localpv-provisioner","openebs.io/version":"3.5.0"},"name":"openebs-localpv-provisioner","namespace":"openebs"},"spec":{"replicas":1,"selector":{"matchLabels":{"name":"openebs-localpv-provisioner","openebs.io/component-name":"openebs-localpv-provisioner"}},"strategy":{"type":"Recreate"},"template":{"metadata":{"labels":{"name":"openebs-localpv-provisioner","openebs.io/component-name":"openebs-localpv-provisioner","openebs.io/version":"3.5.0"}},"spec":{"containers":[{"args":["--bd-time-out=$(BDC_BD_BIND_RETRIES)"],"env":[{"name":"BDC_BD_BIND_RETRIES","value":"12"},{"name":"NODE_NAME","valueFrom":{"fieldRef":{"fieldPath":"spec.nodeName"}}},{"name":"OPENEBS_NAMESPACE","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"OPENEBS_SERVICE_ACCOUNT","valueFrom":{"fieldRef":{"fieldPath":"spec.serviceAccountName"}}},{"name":"OPENEBS_IO_ENABLE_ANALYTICS","value":"true"},{"name":"OPENEBS_IO_INSTALLER_TYPE","value":"openebs-operator"},{"name":"OPENEBS_IO_HELPER_IMAGE","value":"openebs/linux-utils:3.5.0"},{"name":"OPENEBS_IO_BASE_PATH","value":"/var/openebs/local"}],"image":"openebs/provisioner-localpv:3.4.0","imagePullPolicy":"IfNotPresent","livenessProbe":{"exec":{"command":["sh","-c","test `pgrep -c \"^provisioner-loc.*\"` = 1"]},"initialDelaySeconds":30,"periodSeconds":60},"name":"openebs-provisioner-hostpath"}],"serviceAccountName":"openebs-maya-operator"}}}}
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    generation: 1
+    labels:
+      name: openebs-localpv-provisioner
+      openebs.io/component-name: openebs-localpv-provisioner
+      openebs.io/version: 3.5.0
+    name: openebs-localpv-provisioner
+    namespace: openebs
+    resourceVersion: "65902"
+    uid: b6386c9f-1ff0-450d-b68e-1a9182206ed6
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        name: openebs-localpv-provisioner
+        openebs.io/component-name: openebs-localpv-provisioner
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          name: openebs-localpv-provisioner
+          openebs.io/component-name: openebs-localpv-provisioner
+          openebs.io/version: 3.5.0
+      spec:
+        containers:
+        - args:
+          - --bd-time-out=$(BDC_BD_BIND_RETRIES)
+          env:
+          - name: BDC_BD_BIND_RETRIES
+            value: "12"
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: OPENEBS_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: OPENEBS_SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
+          - name: OPENEBS_IO_ENABLE_ANALYTICS
+            value: "true"
+          - name: OPENEBS_IO_INSTALLER_TYPE
+            value: openebs-operator
+          - name: OPENEBS_IO_HELPER_IMAGE
+            value: openebs/linux-utils:3.5.0
+          - name: OPENEBS_IO_BASE_PATH
+            value: /var/openebs/local
+          image: openebs/provisioner-localpv:3.4.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - test `pgrep -c "^provisioner-loc.*"` = 1
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: openebs-provisioner-hostpath
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: openebs-maya-operator
+        serviceAccountName: openebs-maya-operator
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2025-11-19T06:41:42Z"
+      lastUpdateTime: "2025-11-19T06:41:43Z"
+      message: ReplicaSet "openebs-localpv-provisioner-65dd55b8dc" has successfully
+        progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2025-11-20T03:24:38Z"
+      lastUpdateTime: "2025-11-20T03:24:38Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"name":"openebs-ndm-cluster-exporter","openebs.io/component-name":"ndm-cluster-exporter","openebs.io/version":"3.5.0"},"name":"openebs-ndm-cluster-exporter","namespace":"openebs"},"spec":{"replicas":1,"selector":{"matchLabels":{"name":"openebs-ndm-cluster-exporter","openebs.io/component-name":"ndm-cluster-exporter"}},"strategy":{"type":"Recreate"},"template":{"metadata":{"labels":{"name":"openebs-ndm-cluster-exporter","openebs.io/component-name":"ndm-cluster-exporter","openebs.io/version":"3.5.0"}},"spec":{"containers":[{"args":["start","--mode=cluster","--port=$(METRICS_LISTEN_PORT)","--metrics=/metrics"],"command":["/usr/local/bin/exporter"],"env":[{"name":"NAMESPACE","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"METRICS_LISTEN_PORT","value":":9100"}],"image":"openebs/node-disk-exporter:2.1.0","imagePullPolicy":"IfNotPresent","name":"ndm-cluster-exporter","ports":[{"containerPort":9100,"name":"metrics","protocol":"TCP"}]}],"serviceAccountName":"openebs-maya-operator"}}}}
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    generation: 1
+    labels:
+      name: openebs-ndm-cluster-exporter
+      openebs.io/component-name: ndm-cluster-exporter
+      openebs.io/version: 3.5.0
+    name: openebs-ndm-cluster-exporter
+    namespace: openebs
+    resourceVersion: "65893"
+    uid: c9705a66-09c5-4af1-9a92-4d3d0f62f368
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        name: openebs-ndm-cluster-exporter
+        openebs.io/component-name: ndm-cluster-exporter
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          name: openebs-ndm-cluster-exporter
+          openebs.io/component-name: ndm-cluster-exporter
+          openebs.io/version: 3.5.0
+      spec:
+        containers:
+        - args:
+          - start
+          - --mode=cluster
+          - --port=$(METRICS_LISTEN_PORT)
+          - --metrics=/metrics
+          command:
+          - /usr/local/bin/exporter
+          env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: METRICS_LISTEN_PORT
+            value: :9100
+          image: openebs/node-disk-exporter:2.1.0
+          imagePullPolicy: IfNotPresent
+          name: ndm-cluster-exporter
+          ports:
+          - containerPort: 9100
+            name: metrics
+            protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: openebs-maya-operator
+        serviceAccountName: openebs-maya-operator
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2025-11-19T06:41:42Z"
+      lastUpdateTime: "2025-11-19T06:41:43Z"
+      message: ReplicaSet "openebs-ndm-cluster-exporter-848db89c6" has successfully
+        progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2025-11-20T03:24:36Z"
+      lastUpdateTime: "2025-11-20T03:24:36Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"name":"openebs-ndm-operator","openebs.io/component-name":"ndm-operator","openebs.io/version":"3.5.0"},"name":"openebs-ndm-operator","namespace":"openebs"},"spec":{"replicas":1,"selector":{"matchLabels":{"name":"openebs-ndm-operator","openebs.io/component-name":"ndm-operator"}},"strategy":{"type":"Recreate"},"template":{"metadata":{"labels":{"name":"openebs-ndm-operator","openebs.io/component-name":"ndm-operator","openebs.io/version":"3.5.0"}},"spec":{"containers":[{"env":[{"name":"WATCH_NAMESPACE","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"POD_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}},{"name":"SERVICE_ACCOUNT","valueFrom":{"fieldRef":{"fieldPath":"spec.serviceAccountName"}}},{"name":"OPERATOR_NAME","value":"node-disk-operator"},{"name":"CLEANUP_JOB_IMAGE","value":"openebs/linux-utils:3.5.0"}],"image":"openebs/node-disk-operator:2.1.0","imagePullPolicy":"IfNotPresent","livenessProbe":{"httpGet":{"path":"/healthz","port":8585},"initialDelaySeconds":15,"periodSeconds":20},"name":"node-disk-operator","readinessProbe":{"httpGet":{"path":"/readyz","port":8585},"initialDelaySeconds":5,"periodSeconds":10}}],"serviceAccountName":"openebs-maya-operator"}}}}
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    generation: 1
+    labels:
+      name: openebs-ndm-operator
+      openebs.io/component-name: ndm-operator
+      openebs.io/version: 3.5.0
+    name: openebs-ndm-operator
+    namespace: openebs
+    resourceVersion: "65997"
+    uid: c811e366-9927-4321-b318-50e5da553f7a
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        name: openebs-ndm-operator
+        openebs.io/component-name: ndm-operator
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          name: openebs-ndm-operator
+          openebs.io/component-name: ndm-operator
+          openebs.io/version: 3.5.0
+      spec:
+        containers:
+        - env:
+          - name: WATCH_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
+          - name: OPERATOR_NAME
+            value: node-disk-operator
+          - name: CLEANUP_JOB_IMAGE
+            value: openebs/linux-utils:3.5.0
+          image: openebs/node-disk-operator:2.1.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8585
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: node-disk-operator
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: 8585
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: openebs-maya-operator
+        serviceAccountName: openebs-maya-operator
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2025-11-19T06:41:42Z"
+      lastUpdateTime: "2025-11-19T06:41:54Z"
+      message: ReplicaSet "openebs-ndm-operator-5849bb84b8" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2025-11-20T03:25:11Z"
+      lastUpdateTime: "2025-11-20T03:25:11Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: DaemonSet
+  metadata:
+    annotations:
+      deprecated.daemonset.template.generation: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"annotations":{},"labels":{"name":"openebs-ndm","openebs.io/component-name":"ndm","openebs.io/version":"3.5.0"},"name":"openebs-ndm","namespace":"openebs"},"spec":{"selector":{"matchLabels":{"name":"openebs-ndm","openebs.io/component-name":"ndm"}},"template":{"metadata":{"labels":{"name":"openebs-ndm","openebs.io/component-name":"ndm","openebs.io/version":"3.5.0"}},"spec":{"containers":[{"args":["-v=4","--feature-gates=\"GPTBasedUUID\""],"env":[{"name":"NAMESPACE","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"NODE_NAME","valueFrom":{"fieldRef":{"fieldPath":"spec.nodeName"}}},{"name":"SPARSE_FILE_DIR","value":"/var/openebs/sparse"},{"name":"SPARSE_FILE_SIZE","value":"10737418240"},{"name":"SPARSE_FILE_COUNT","value":"0"}],"image":"openebs/node-disk-manager:2.1.0","imagePullPolicy":"IfNotPresent","livenessProbe":{"exec":{"command":["pgrep","ndm"]},"initialDelaySeconds":30,"periodSeconds":60},"name":"node-disk-manager","securityContext":{"privileged":true},"volumeMounts":[{"mountPath":"/host/node-disk-manager.config","name":"config","readOnly":true,"subPath":"node-disk-manager.config"},{"mountPath":"/run/udev","name":"udev"},{"mountPath":"/host/proc","name":"procmount","readOnly":true},{"mountPath":"/dev","name":"devmount"},{"mountPath":"/var/openebs/ndm","name":"basepath"},{"mountPath":"/var/openebs/sparse","name":"sparsepath"}]}],"hostNetwork":true,"serviceAccountName":"openebs-maya-operator","volumes":[{"configMap":{"name":"openebs-ndm-config"},"name":"config"},{"hostPath":{"path":"/run/udev","type":"Directory"},"name":"udev"},{"hostPath":{"path":"/proc","type":"Directory"},"name":"procmount"},{"hostPath":{"path":"/dev","type":"Directory"},"name":"devmount"},{"hostPath":{"path":"/var/openebs/ndm","type":"DirectoryOrCreate"},"name":"basepath"},{"hostPath":{"path":"/var/openebs/sparse"},"name":"sparsepath"}]}},"updateStrategy":{"type":"RollingUpdate"}}}
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    generation: 1
+    labels:
+      name: openebs-ndm
+      openebs.io/component-name: ndm
+      openebs.io/version: 3.5.0
+    name: openebs-ndm
+    namespace: openebs
+    resourceVersion: "17508"
+    uid: 2334e930-3c50-480b-9038-2d494bd63b10
+  spec:
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        name: openebs-ndm
+        openebs.io/component-name: ndm
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          name: openebs-ndm
+          openebs.io/component-name: ndm
+          openebs.io/version: 3.5.0
+      spec:
+        containers:
+        - args:
+          - -v=4
+          - --feature-gates="GPTBasedUUID"
+          env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: SPARSE_FILE_DIR
+            value: /var/openebs/sparse
+          - name: SPARSE_FILE_SIZE
+            value: "10737418240"
+          - name: SPARSE_FILE_COUNT
+            value: "0"
+          image: openebs/node-disk-manager:2.1.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+              - pgrep
+              - ndm
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: node-disk-manager
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /host/node-disk-manager.config
+            name: config
+            readOnly: true
+            subPath: node-disk-manager.config
+          - mountPath: /run/udev
+            name: udev
+          - mountPath: /host/proc
+            name: procmount
+            readOnly: true
+          - mountPath: /dev
+            name: devmount
+          - mountPath: /var/openebs/ndm
+            name: basepath
+          - mountPath: /var/openebs/sparse
+            name: sparsepath
+        dnsPolicy: ClusterFirst
+        hostNetwork: true
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: openebs-maya-operator
+        serviceAccountName: openebs-maya-operator
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: openebs-ndm-config
+          name: config
+        - hostPath:
+            path: /run/udev
+            type: Directory
+          name: udev
+        - hostPath:
+            path: /proc
+            type: Directory
+          name: procmount
+        - hostPath:
+            path: /dev
+            type: Directory
+          name: devmount
+        - hostPath:
+            path: /var/openebs/ndm
+            type: DirectoryOrCreate
+          name: basepath
+        - hostPath:
+            path: /var/openebs/sparse
+            type: ""
+          name: sparsepath
+    updateStrategy:
+      rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 1
+      type: RollingUpdate
+  status:
+    currentNumberScheduled: 1
+    desiredNumberScheduled: 1
+    numberMisscheduled: 0
+    numberReady: 0
+    numberUnavailable: 1
+    observedGeneration: 1
+    updatedNumberScheduled: 1
+- apiVersion: apps/v1
+  kind: DaemonSet
+  metadata:
+    annotations:
+      deprecated.daemonset.template.generation: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"annotations":{},"labels":{"name":"openebs-ndm-node-exporter","openebs.io/component-name":"ndm-node-exporter","openebs.io/version":"3.5.0"},"name":"openebs-ndm-node-exporter","namespace":"openebs"},"spec":{"selector":{"matchLabels":{"name":"openebs-ndm-node-exporter","openebs.io/component-name":"ndm-node-exporter"}},"template":{"metadata":{"labels":{"name":"openebs-ndm-node-exporter","openebs.io/component-name":"ndm-node-exporter","openebs.io/version":"3.5.0"}},"spec":{"containers":[{"args":["start","--mode=node","--port=$(METRICS_LISTEN_PORT)","--metrics=/metrics"],"command":["/usr/local/bin/exporter"],"env":[{"name":"NAMESPACE","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"METRICS_LISTEN_PORT","value":":9101"}],"image":"openebs/node-disk-exporter:2.1.0","imagePullPolicy":"IfNotPresent","name":"node-disk-exporter","ports":[{"containerPort":9101,"name":"metrics","protocol":"TCP"}],"securityContext":{"privileged":true}}],"serviceAccountName":"openebs-maya-operator"}},"updateStrategy":{"type":"RollingUpdate"}}}
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    generation: 1
+    labels:
+      name: openebs-ndm-node-exporter
+      openebs.io/component-name: ndm-node-exporter
+      openebs.io/version: 3.5.0
+    name: openebs-ndm-node-exporter
+    namespace: openebs
+    resourceVersion: "66099"
+    uid: c32af530-fd0e-40c1-94e7-cb558397a9c4
+  spec:
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        name: openebs-ndm-node-exporter
+        openebs.io/component-name: ndm-node-exporter
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          name: openebs-ndm-node-exporter
+          openebs.io/component-name: ndm-node-exporter
+          openebs.io/version: 3.5.0
+      spec:
+        containers:
+        - args:
+          - start
+          - --mode=node
+          - --port=$(METRICS_LISTEN_PORT)
+          - --metrics=/metrics
+          command:
+          - /usr/local/bin/exporter
+          env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: METRICS_LISTEN_PORT
+            value: :9101
+          image: openebs/node-disk-exporter:2.1.0
+          imagePullPolicy: IfNotPresent
+          name: node-disk-exporter
+          ports:
+          - containerPort: 9101
+            name: metrics
+            protocol: TCP
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: openebs-maya-operator
+        serviceAccountName: openebs-maya-operator
+        terminationGracePeriodSeconds: 30
+    updateStrategy:
+      rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 1
+      type: RollingUpdate
+  status:
+    currentNumberScheduled: 1
+    desiredNumberScheduled: 1
+    numberAvailable: 1
+    numberMisscheduled: 0
+    numberReady: 1
+    observedGeneration: 1
+    updatedNumberScheduled: 1
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    name: default
+    namespace: openebs
+    resourceVersion: "17486"
+    uid: 065e00e3-33ef-4641-94d8-d0263b781f1a
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"ServiceAccount","metadata":{"annotations":{},"name":"openebs-maya-operator","namespace":"openebs"}}
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    name: openebs-maya-operator
+    namespace: openebs
+    resourceVersion: "17485"
+    uid: 1f04dc69-917d-488a-92ea-9852d24ea114
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIIZq154LDpJDYwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNTExMTkwMjU4MTdaFw0zNTExMTcwMzAzMTdaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQDHCvlBiHfeyjLS7Y8oKgo4ORUtWv2Rr9hXvgl/zrw1Rc3bJgRQYwM0DwWb
+      pFejL43bm17Nofy1Jgljx2b3ynBBx5IcfN5uvNWGxz15Cha0CNCjvoeN+QhUueus
+      9kgL14pj4CBs/9hY+GSSLvVrdrQbN7lSPKPZp4qYZ2uwwYsWDkXZ5XM9OOFLuoYq
+      U+jlD5BMAZelHOQz3cvmgD5BZ2YiNRF5g/s1Iv2Cd6NO57B0ES6gOaXTOy1capwI
+      npIII+2QS6MdV94dNui8CjiCsM9+J5CBtXM5+ZOc+a2hdvRX3kHVG657C76KrY6s
+      GfUEOf5kJas7RYTtwsOvqxIquDc/AgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBR8kwwF7P+hm56DnHRM0cwIp4W4/zAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQBkWA/eTzRP
+      rmZihIi2AqF7RNa/Ldv511B53khDPEeE3OYepJhgBRscxaObSXhSPsWi0oqWbNrh
+      iL8BHoQtTgr+B5hvOl06ZGz56vOQdDMWDVgZuB6KGPFVQSHeZ7ayYCyq6MCOxMhE
+      Bp8nS0xrIJSmabgHfuugOLixZsQNytQDslvl28J7A4j2JWwSVd+aKDo1H+tUIFfG
+      dWG7GhwWN8ShLH9xEf+Q6MSccH/AfzHToB9mHSc7ZfIHoshoTI6Y4qxdE2fairKr
+      892dwHj+ccGZMfDTXqUkeixAfG5wXtlCMbnEJeVekOsyUJdRbP+2DjVowFg9+bQ4
+      Ihd2VLtAp52A
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    name: kube-root-ca.crt
+    namespace: openebs
+    resourceVersion: "17487"
+    uid: 40a02c3c-c7ab-496d-be2d-0c0834945a82
+- apiVersion: v1
+  data:
+    node-disk-manager.config: |
+      probeconfigs:
+        - key: udev-probe
+          name: udev probe
+          state: true
+        - key: seachest-probe
+          name: seachest probe
+          state: false
+        - key: smart-probe
+          name: smart probe
+          state: true
+      filterconfigs:
+        - key: os-disk-exclude-filter
+          name: os disk exclude filter
+          state: true
+          exclude: "/,/etc/hosts,/boot"
+        - key: vendor-filter
+          name: vendor filter
+          state: true
+          include: ""
+          exclude: "CLOUDBYT,OpenEBS"
+        - key: path-filter
+          name: path filter
+          state: true
+          include: ""
+          exclude: "/dev/loop,/dev/fd0,/dev/sr0,/dev/ram,/dev/md,/dev/dm-,/dev/rbd,/dev/zd"
+      # metconfig can be used to decorate the block device with different types of labels
+      # that are available on the node or come in a device properties.
+      # node labels - the node where bd is discovered. A whitlisted label prefixes
+      # attribute labels - a property of the BD can be added as a ndm label as ndm.io/<property>=<property-value>
+      metaconfigs:
+        - key: node-labels
+          name: node labels
+          pattern: ""
+        - key: device-labels
+          name: device labels
+          type: ""
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"node-disk-manager.config":"probeconfigs:\n  - key: udev-probe\n    name: udev probe\n    state: true\n  - key: seachest-probe\n    name: seachest probe\n    state: false\n  - key: smart-probe\n    name: smart probe\n    state: true\nfilterconfigs:\n  - key: os-disk-exclude-filter\n    name: os disk exclude filter\n    state: true\n    exclude: \"/,/etc/hosts,/boot\"\n  - key: vendor-filter\n    name: vendor filter\n    state: true\n    include: \"\"\n    exclude: \"CLOUDBYT,OpenEBS\"\n  - key: path-filter\n    name: path filter\n    state: true\n    include: \"\"\n    exclude: \"/dev/loop,/dev/fd0,/dev/sr0,/dev/ram,/dev/md,/dev/dm-,/dev/rbd,/dev/zd\"\n# metconfig can be used to decorate the block device with different types of labels\n# that are available on the node or come in a device properties.\n# node labels - the node where bd is discovered. A whitlisted label prefixes\n# attribute labels - a property of the BD can be added as a ndm label as ndm.io/\u003cproperty\u003e=\u003cproperty-value\u003e\nmetaconfigs:\n  - key: node-labels\n    name: node labels\n    pattern: \"\"\n  - key: device-labels\n    name: device labels\n    type: \"\"\n"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"openebs.io/component-name":"ndm-config"},"name":"openebs-ndm-config","namespace":"openebs"}}
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    labels:
+      openebs.io/component-name: ndm-config
+    name: openebs-ndm-config
+    namespace: openebs
+    resourceVersion: "17496"
+    uid: ecd79e76-6eef-4071-bfeb-5fb6daabad92
+- apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      cas.openebs.io/config: |
+        #device type will create a PV by
+        # issuing a BDC and will extract the path
+        # values from the associated BD.
+        - name: StorageType
+          value: "device"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"storage.k8s.io/v1","kind":"StorageClass","metadata":{"annotations":{"cas.openebs.io/config":"#device type will create a PV by\n# issuing a BDC and will extract the path\n# values from the associated BD.\n- name: StorageType\n  value: \"device\"\n","openebs.io/cas-type":"local"},"name":"openebs-device"},"provisioner":"openebs.io/local","reclaimPolicy":"Delete","volumeBindingMode":"WaitForFirstConsumer"}
+      openebs.io/cas-type: local
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    name: openebs-device
+    resourceVersion: "17555"
+    uid: dfc21683-729c-446d-b0c4-745810203187
+  provisioner: openebs.io/local
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+- apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      cas.openebs.io/config: "#hostpath type will create a PV by \n# creating a sub-directory
+        under the\n# BASEPATH provided below.\n- name: StorageType\n  value: \"hostpath\"\n#Specify
+        the location (directory) where\n# where PV(volume) data will be saved. \n#
+        A sub-directory with pv-name will be \n# created. When the volume is deleted,
+        \n# the PV sub-directory will be deleted.\n#Default value is /var/openebs/local\n-
+        name: BasePath\n  value: \"/var/openebs/local/\"\n"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"storage.k8s.io/v1","kind":"StorageClass","metadata":{"annotations":{"cas.openebs.io/config":"#hostpath type will create a PV by \n# creating a sub-directory under the\n# BASEPATH provided below.\n- name: StorageType\n  value: \"hostpath\"\n#Specify the location (directory) where\n# where PV(volume) data will be saved. \n# A sub-directory with pv-name will be \n# created. When the volume is deleted, \n# the PV sub-directory will be deleted.\n#Default value is /var/openebs/local\n- name: BasePath\n  value: \"/var/openebs/local/\"\n","openebs.io/cas-type":"local"},"name":"openebs-hostpath"},"provisioner":"openebs.io/local","reclaimPolicy":"Delete","volumeBindingMode":"WaitForFirstConsumer"}
+      openebs.io/cas-type: local
+    creationTimestamp: "2025-11-19T06:41:42Z"
+    name: openebs-hostpath
+    resourceVersion: "17549"
+    uid: 4953e681-4014-4796-a6aa-9e17a59c3dc4
+  provisioner: openebs.io/local
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+- apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"storage.k8s.io/v1","kind":"StorageClass","metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"},"name":"standard"},"provisioner":"rancher.io/local-path","reclaimPolicy":"Delete","volumeBindingMode":"WaitForFirstConsumer"}
+      storageclass.kubernetes.io/is-default-class: "true"
+    creationTimestamp: "2025-11-19T03:03:27Z"
+    name: standard
+    resourceVersion: "322"
+    uid: 252267ee-dacb-4696-b480-e4076135887d
+  provisioner: rancher.io/local-path
+  reclaimPolicy: Delete
+  volumeBindingMode: WaitForFirstConsumer
+kind: List
+metadata:
+  resourceVersion: ""

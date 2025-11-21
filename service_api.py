@@ -659,23 +659,23 @@ async def _run_single_episode(
             f.write(f"=== Cluster: {cluster_name} ===\n")
             f.write(f"=== Max Steps: {problem.max_steps} ===\n\n")
         
-    async with semaphore:
-        reward_config = _build_reward_config(problem.reward_config)
+        async with semaphore:
+            reward_config = _build_reward_config(problem.reward_config)
             
-            # 重定向 stdout/stderr 到日志文件（用于捕获 service 调用的输出）
+            # 重定向 stdout/stderr 到日志文件（只捕获 reset 操作的输出）
             original_stdout = sys.stdout
             original_stderr = sys.stderr
             with open(log_file, 'a') as log_f:
                 sys.stdout = log_f
                 sys.stderr = log_f
                 try:
-        handle = await asyncio.to_thread(
-            service.reset_rl_environment,
-            problem.problem_id,
-            max_steps=problem.max_steps,
-            reward_config=reward_config,
-            ground_truth_dir=problem.ground_truth_dir,
-        )
+                    handle = await asyncio.to_thread(
+                        service.reset_rl_environment,
+                        problem.problem_id,
+                        max_steps=problem.max_steps,
+                        reward_config=reward_config,
+                        ground_truth_dir=problem.ground_truth_dir,
+                    )
                 finally:
                     sys.stdout = original_stdout
                     sys.stderr = original_stderr
@@ -720,23 +720,25 @@ async def _run_single_episode(
                 llm_message = await action_provider.generate(list(conversation))
                 action_text = _extract_action_text(llm_message)
                 step_index += 1
-                    
-                    # 重定向 step 调用的输出到日志文件
-                    with open(log_file, 'a') as log_f:
-                        sys.stdout = log_f
-                        sys.stderr = log_f
-                        try:
-                step_result = await asyncio.to_thread(
-                    service.step_rl_environment,
-                    env_id,
-                    step=step_index,
-                    action=action_text,
-                    llm_response=llm_message,
-                    llm_raw_response=llm_message,
-                )
-                        finally:
-                            sys.stdout = original_stdout
-                            sys.stderr = original_stderr
+                
+                # 重定向 step 调用的输出到日志文件
+                original_stdout = sys.stdout
+                original_stderr = sys.stderr
+                with open(log_file, 'a') as log_f:
+                    sys.stdout = log_f
+                    sys.stderr = log_f
+                    try:
+                        step_result = await asyncio.to_thread(
+                            service.step_rl_environment,
+                            env_id,
+                            step=step_index,
+                            action=action_text,
+                            llm_response=llm_message,
+                            llm_raw_response=llm_message,
+                        )
+                    finally:
+                        sys.stdout = original_stdout
+                        sys.stderr = original_stderr
 
                 total_reward += step_result.reward
                 done_flag = False
@@ -785,12 +787,12 @@ async def _run_single_episode(
             else:
                 run_result.echo_post_status = "ok"
 
-                # 任务完成，输出到终端
-                logger.info(f"✅ [Round {job.log_round}] Task {problem.problem_id}[{run_index}] completed | Reward: {total_reward:.2f} | Steps: {step_index} | Log: {log_file}")
+            # 任务完成，输出到终端
+            logger.info(f"✅ [Round {job.log_round}] Task {problem.problem_id}[{run_index}] completed | Reward: {total_reward:.2f} | Steps: {step_index} | Log: {log_file}")
 
             return run_result
-            except Exception as e:
-                logger.error(f"❌ [Round {job.log_round}] Task {problem.problem_id}[{run_index}] failed: {str(e)} | Log: {log_file}")
+        except Exception as e:
+            logger.error(f"❌ [Round {job.log_round}] Task {problem.problem_id}[{run_index}] failed: {str(e)} | Log: {log_file}")
             try:
                 await asyncio.to_thread(service.close_rl_environment, env_id)
             except service.RLEnvironmentNotFoundError:

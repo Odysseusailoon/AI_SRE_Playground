@@ -36,11 +36,16 @@ class Helm:
         remote_chart = args.get("remote_chart", False)
         values_file = args.get("values_file")
 
+        # 检查 release 是否已存在
+        if Helm.exists_release(release_name, namespace):
+            print(f"Release {release_name} already exists in namespace {namespace}. Skipping installation.")
+            return
+
         kube_context = get_kube_context()
 
         if not remote_chart:
             # Install dependencies for chart before installation
-            dependency_command = f"helm dependency update {chart_path}"
+            dependency_command = f"helm dependency build {chart_path}"
             if kube_context:
                 dependency_command += f" --kube-context {kube_context}"
             dependency_process = subprocess.Popen(

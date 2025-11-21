@@ -11,6 +11,7 @@ from aiopslab.orchestrator.parser import ResponseParser
 from aiopslab.utils.status import *
 from aiopslab.utils.critical_section import CriticalSection
 from aiopslab.service.telemetry.prometheus import Prometheus
+from aiopslab.paths import BASE_DIR
 import time
 import inspect
 import asyncio
@@ -54,15 +55,22 @@ class Orchestrator:
         if deployment != "docker":
             print("Setting up OpenEBS...")
 
-            # Install OpenEBS
-            self.kubectl.exec_command(
-                "kubectl apply -f https://openebs.github.io/charts/openebs-operator.yaml"
-            )
-            self.kubectl.exec_command(
-                "kubectl patch storageclass openebs-hostpath -p '{\"metadata\": {\"annotations\":{\"storageclass.kubernetes.io/is-default-class\":\"true\"}}}'"
-            )
-            self.kubectl.wait_for_ready("openebs")
-            print("OpenEBS setup completed.")
+            # 检查 OpenEBS 是否已经运行
+            command = "kubectl get pods -n openebs"
+            result = self.kubectl.exec_command(command)
+            if "Running" in result:
+                print("OpenEBS is already running. Skipping installation.")
+            else:
+                # Install OpenEBS (使用本地 YAML)
+                openebs_yaml = str(BASE_DIR / "infrastructure/openebs/openebs-operator.yaml")
+                self.kubectl.exec_command(
+                    f"kubectl apply -f {openebs_yaml}"
+                )
+                self.kubectl.exec_command(
+                    "kubectl patch storageclass openebs-hostpath -p '{\"metadata\": {\"annotations\":{\"storageclass.kubernetes.io/is-default-class\":\"true\"}}}'"
+                )
+                self.kubectl.wait_for_ready("openebs")
+                print("OpenEBS setup completed.")
 
             # Setup and deploy Prometheus
             self.prometheus = Prometheus()
@@ -209,8 +217,9 @@ class Orchestrator:
             self.prometheus.teardown()
             print("Uninstalling OpenEBS...")
             self.kubectl.exec_command("kubectl delete sc openebs-hostpath openebs-device --ignore-not-found")
+            openebs_yaml = str(BASE_DIR / "infrastructure/openebs/openebs-operator.yaml")
             self.kubectl.exec_command(
-                "kubectl delete -f https://openebs.github.io/charts/openebs-operator.yaml"
+                f"kubectl delete -f {openebs_yaml}"
             )
             self.kubectl.wait_for_namespace_deletion("openebs")
 
