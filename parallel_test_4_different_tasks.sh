@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Kind1-10 并行测试 (Social Network 10个任务，30轮完整测试)
+# Kind1-15 并行测试 (Social Network 15个任务)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # 定义颜色
@@ -14,15 +14,15 @@ BASE_DIR="/home/ecs-user/projects/AI_SRE_Playground-echo"
 cd "$BASE_DIR" || { echo -e "${RED}错误: 无法进入项目目录!${NC}"; exit 1; }
 
 # 确保日志目录存在
-LOG_DIR="cwy/log/parallel10"
+LOG_DIR="cwy/log/parallel15"
 mkdir -p "$LOG_DIR"
 
 # 主日志文件
 MAIN_LOG="$LOG_DIR/parallel_test_main.log"
 
-# 定义集群和任务映射 (kind1-kind10: Social Network)
+# 定义集群和任务映射 (kind1-kind15: Social Network)
 declare -A CLUSTER_TASKS=(
-    # Social Network (10个任务 - 启用)
+    # Social Network (15个任务 - 启用)
     ["kind1"]="k8s_target_port-misconfig-detection-1"
     ["kind2"]="k8s_target_port-misconfig-detection-2"
     ["kind3"]="k8s_target_port-misconfig-detection-3"
@@ -33,13 +33,11 @@ declare -A CLUSTER_TASKS=(
     ["kind8"]="k8s_target_port-misconfig-localization-1"
     ["kind9"]="k8s_target_port-misconfig-localization-2"
     ["kind10"]="k8s_target_port-misconfig-localization-3"
-    
-    # Social Network (剩余15个任务 - 已注释)
-    # ["kind11"]="auth_miss_mongodb-localization-1"
-    # ["kind12"]="scale_pod_zero_social_net-localization-1"
-    # ["kind13"]="assign_to_non_existent_node_social_net-localization-1"
-    # ["kind14"]="k8s_target_port-misconfig-analysis-1"
-    # ["kind15"]="k8s_target_port-misconfig-analysis-2"
+    ["kind11"]="auth_miss_mongodb-localization-1"
+    ["kind12"]="scale_pod_zero_social_net-localization-1"
+    ["kind13"]="assign_to_non_existent_node_social_net-localization-1"
+    ["kind14"]="k8s_target_port-misconfig-analysis-1"
+    ["kind15"]="k8s_target_port-misconfig-analysis-2"
     # ["kind16"]="k8s_target_port-misconfig-analysis-3"
     # ["kind17"]="auth_miss_mongodb-analysis-1"
     # ["kind18"]="scale_pod_zero_social_net-analysis-1"
@@ -50,6 +48,8 @@ declare -A CLUSTER_TASKS=(
     # ["kind23"]="auth_miss_mongodb-mitigation-1"
     # ["kind24"]="scale_pod_zero_social_net-mitigation-1"
     # ["kind25"]="assign_to_non_existent_node_social_net-mitigation-1"
+    
+    # Social Network (剩余10个任务 - 已注释)
     
     # Hotel Reservation (前9个任务 - 已注释)
     # ["kind26"]="revoke_auth_mongodb-detection-1"
@@ -69,7 +69,7 @@ MAX_STEPS=30
 # 开始写主日志
 {
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🚀 Kind1-10 并行测试 (Social Network 10个任务，30轮完整测试)"
+echo "🚀 Kind1-15 并行测试 (Social Network 15个任务，30轮完整测试)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "⏰ 开始时间: $(date '+%Y-%m-%d %H:%M:%S')"
@@ -79,14 +79,14 @@ echo ""
 } > "$MAIN_LOG"
 
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}🚀 Kind1-10 并行测试 (30轮完整测试)${NC}"
+echo -e "${GREEN}🚀 Kind1-15 并行测试 (30轮完整测试)${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${YELLOW}任务配置:${NC}"
 {
 echo "任务配置:"
-# 遍历 kind1-kind10
-for cluster in kind{1..10}; do
+# 遍历 kind1-kind15
+for cluster in kind{1..15}; do
     task="${CLUSTER_TASKS[$cluster]}"
     echo -e "  ${GREEN}[$cluster]${NC} → $task"
     echo "  [$cluster] → $task" >> "$MAIN_LOG"
@@ -96,7 +96,7 @@ echo "" >> "$MAIN_LOG"
 }
 
 # 为每个集群创建包装脚本
-for cluster in kind{1..10}; do
+for cluster in kind{1..15}; do
     task="${CLUSTER_TASKS[$cluster]}"
     wrapper_script="/tmp/run_on_${cluster}_$$.sh"
     
@@ -143,8 +143,8 @@ echo ""
 
 PIDS=()
 
-# 启动 kind1-kind10 的测试任务
-for cluster in kind{1..10}; do
+# 启动 kind1-kind15 的测试任务
+for cluster in kind{1..15}; do
     task="${CLUSTER_TASKS[$cluster]}"
     wrapper_script="/tmp/run_on_${cluster}_$$.sh"
     log_file="$LOG_DIR/task_${cluster}_${task}.log"
@@ -188,8 +188,8 @@ echo ""
 echo -e "  # 实时监控所有任务"
 echo -e "  ${GREEN}watch -n 2 'tail -n 5 $LOG_DIR/*.log'${NC}"
 echo ""
-echo -e "  # 查看单个任务日志 (kind1-kind10)"
-for cluster in kind{1..10}; do
+echo -e "  # 查看单个任务日志 (kind1-kind15)"
+for cluster in kind{1..15}; do
     task="${CLUSTER_TASKS[$cluster]}"
     echo -e "  ${GREEN}tail -f $LOG_DIR/task_${cluster}_${task}.log${NC}"
 done

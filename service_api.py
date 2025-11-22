@@ -396,7 +396,7 @@ _TRAINING_JOBS_LOCK = asyncio.Lock()
 # 集群池管理（支持并行执行）
 # ================================
 # 可用的 Kind 集群列表
-_AVAILABLE_CLUSTERS = ["kind", "kind1", "kind2", "kind3"]
+_AVAILABLE_CLUSTERS = ["kind1"]  # 使用 kind1 集群（Social Network）
 # 集群池队列（使用 asyncio.Queue 实现自动排队和阻塞等待）
 _CLUSTER_POOL: Optional[asyncio.Queue] = None
 _CLUSTER_POOL_LOCK = asyncio.Lock()
@@ -518,6 +518,79 @@ def _dump_json(payload: Any) -> str:
         return json.dumps(str(payload))
 
 
+def _compress_repeated_lines(text: str, max_repeat: int = 3, max_total_lines: int = 500) -> str:
+    """压缩重复日志行，避免 token 超限
+    
+    Args:
+        text: 原始文本（包含大量重复日志）
+        max_repeat: 同一行最多保留几次（默认3次）
+        max_total_lines: 总行数限制（默认500行）
+    
+    Returns:
+        压缩后的文本
+    """
+    if not text or not isinstance(text, str):
+        return text
+    
+    lines = text.split('\n')
+    if len(lines) <= max_total_lines:
+        # 行数不多，只去重
+        compressed = []
+        prev_line = None
+        repeat_count = 0
+        
+        for line in lines:
+            if line == prev_line:
+                repeat_count += 1
+                if repeat_count <= max_repeat:
+                    compressed.append(line)
+                elif repeat_count == max_repeat + 1:
+                    compressed.append(f"... [以上内容重复 {repeat_count - max_repeat} 次] ...")
+            else:
+                if repeat_count > max_repeat:
+                    compressed[-1] = f"... [以上内容重复 {repeat_count - max_repeat} 次] ..."
+                prev_line = line
+                repeat_count = 1
+                compressed.append(line)
+        
+        # 处理最后一组重复
+        if repeat_count > max_repeat:
+            compressed[-1] = f"... [以上内容重复 {repeat_count - max_repeat} 次] ..."
+        
+        return '\n'.join(compressed)
+    else:
+        # 行数过多，先去重再截断
+        compressed = []
+        prev_line = None
+        repeat_count = 0
+        total_kept = 0
+        
+        for line in lines:
+            if total_kept >= max_total_lines:
+                break
+            
+            if line == prev_line:
+                repeat_count += 1
+                if repeat_count <= max_repeat:
+                    compressed.append(line)
+                    total_kept += 1
+                elif repeat_count == max_repeat + 1:
+                    compressed.append(f"... [以上内容重复中] ...")
+                    total_kept += 1
+            else:
+                if repeat_count > max_repeat:
+                    compressed[-1] = f"... [以上内容重复了 {repeat_count - max_repeat} 次] ..."
+                prev_line = line
+                repeat_count = 1
+                compressed.append(line)
+                total_kept += 1
+        
+        if len(lines) > total_kept:
+            compressed.append(f"\n... [日志过长，已截断 {len(lines) - total_kept} 行] ...")
+        
+        return '\n'.join(compressed)
+
+
 def _format_observation_message(observation: Dict[str, Any], info: Dict[str, Any]) -> str:
     state = observation.get("state") if isinstance(observation, dict) else None
     metadata = {}
@@ -525,7 +598,9 @@ def _format_observation_message(observation: Dict[str, Any], info: Dict[str, Any
         metadata = {k: v for k, v in observation.items() if k != "state"}
     parts: List[str] = []
     if state:
-        parts.append(f"Environment state:\n{state}")
+        # 压缩重复日志，避免 token 超限
+        compressed_state = _compress_repeated_lines(state, max_repeat=3, max_total_lines=500)
+        parts.append(f"Environment state:\n{compressed_state}")
     if metadata:
         parts.append(f"Observation metadata:\n{_dump_json(metadata)}")
     if info:
@@ -540,7 +615,9 @@ def _format_step_feedback(step: service.RLEnvironmentStep) -> str:
     other_info = {k: v for k, v in step.info.items() if k != "environment"} if isinstance(step.info, dict) else {}
     parts = [f"Reward: {step.reward}", f"Actions remaining: {step.actions_left}"]
     if step.state:
-        parts.insert(0, f"Observation after action:\n{step.state}")
+        # 压缩重复日志，避免 token 超限
+        compressed_state = _compress_repeated_lines(step.state, max_repeat=3, max_total_lines=500)
+        parts.insert(0, f"Observation after action:\n{compressed_state}")
     if env_info:
         parts.append(f"Environment metadata:\n{_dump_json(env_info)}")
     if other_info:
@@ -717,6 +794,27 @@ async def _run_single_episode(
             max_steps = problem.max_steps or observation.get("actions_left") or 30
 
             while not done and step_index < max_steps:
+                # ========== 调试日志：记录发送给LLM的完整输入 ==========
+                logger.info(f"🤖 [Step {step_index + 1}] Preparing LLM request...")
+                
+                # 估算token数量（粗略估计：4字符=1token）
+                conversation_str = json.dumps(list(conversation), ensure_ascii=False)
+                estimated_tokens = len(conversation_str) // 4
+                
+                # 记录到日志文件
+                with open(log_file, 'a') as log_f:
+                    log_f.write(f"\n{'='*80}\n")
+                    log_f.write(f"🤖 LLM Request - Step {step_index + 1}\n")
+                    log_f.write(f"{'='*80}\n")
+                    log_f.write(f"Estimated tokens: {estimated_tokens:,}\n")
+                    log_f.write(f"Conversation length: {len(conversation)} messages\n")
+                    log_f.write(f"\n--- Full Conversation ---\n")
+                    log_f.write(json.dumps(list(conversation), indent=2, ensure_ascii=False))
+                    log_f.write(f"\n{'='*80}\n\n")
+                
+                logger.info(f"📊 Estimated tokens: {estimated_tokens:,} | Messages: {len(conversation)}")
+                # ========== 调试日志结束 ==========
+                
                 llm_message = await action_provider.generate(list(conversation))
                 action_text = _extract_action_text(llm_message)
                 step_index += 1

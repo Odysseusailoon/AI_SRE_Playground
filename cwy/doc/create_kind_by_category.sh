@@ -260,42 +260,37 @@ if ! kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
         log "准备 Social Network 源代码（DeathStarBench）..."
         
         # 创建目录
-        docker exec ${CLUSTER_NAME}-control-plane mkdir -p /var/lib/kubelet/hostpath/socialNetwork
+        docker exec ${CLUSTER_NAME}-control-plane mkdir -p /var/lib/kubelet/hostpath/
         
-        # 查找可用的源集群（从任何运行中且有源代码的 kind 集群复制）
-        SOURCE_CLUSTER=""
+        # 本地源代码路径
+        LOCAL_SOURCE="$BASE_DIR/aiopslab-applications/socialNetwork"
         
-        # 遍历所有运行中的 kind 集群，找到第一个有源代码的
-        for container in $(docker ps --filter "name=kind.*-control-plane" --format "{{.Names}}" | sed 's/-control-plane//'); do
-            # 跳过当前正在创建的集群
-            if [[ "$container" == "$CLUSTER_NAME" ]]; then
-                continue
-            fi
+        # 检查本地源代码是否存在
+        if [[ ! -d "$LOCAL_SOURCE" ]]; then
+            log_error "本地源代码不存在: $LOCAL_SOURCE"
+            log "请确保项目包含 aiopslab-applications/socialNetwork 目录"
+            exit 1
+        fi
+        
+        if [[ ! -f "$LOCAL_SOURCE/CMakeLists.txt" ]]; then
+            log_error "源代码不完整: 缺少 CMakeLists.txt"
+            exit 1
+        fi
+        
+        # 从本地项目复制源代码到集群
+        log "从本地项目复制 DeathStarBench 源代码..."
+        if docker cp "$LOCAL_SOURCE" ${CLUSTER_NAME}-control-plane:/var/lib/kubelet/hostpath/; then
+            log_success "源代码已从本地复制到集群"
             
-            # 检查是否有源代码（验证 CMakeLists.txt 文件存在）
-            if docker exec ${container}-control-plane test -f /var/lib/kubelet/hostpath/socialNetwork/CMakeLists.txt 2>/dev/null; then
-                SOURCE_CLUSTER="$container"
-                log "找到源集群: $SOURCE_CLUSTER"
-                break
-            fi
-        done
-        
-        # 执行复制
-        if [[ -n "$SOURCE_CLUSTER" ]]; then
-            log "从 ${SOURCE_CLUSTER} 复制 DeathStarBench 源代码..."
-            if docker cp ${SOURCE_CLUSTER}-control-plane:/var/lib/kubelet/hostpath/socialNetwork /tmp/socialNetwork_temp_$$ && \
-               docker cp /tmp/socialNetwork_temp_$$/. ${CLUSTER_NAME}-control-plane:/var/lib/kubelet/hostpath/socialNetwork/ && \
-               rm -rf /tmp/socialNetwork_temp_$$; then
-                log_success "源代码已从 ${SOURCE_CLUSTER} 复制"
+            # 验证复制结果
+            if docker exec ${CLUSTER_NAME}-control-plane test -f /var/lib/kubelet/hostpath/socialNetwork/CMakeLists.txt; then
+                log_success "源代码验证成功"
             else
-                log_error "源代码复制失败"
-                log "请手动复制源代码到集群内"
+                log_error "源代码验证失败"
                 exit 1
             fi
         else
-            log_error "未找到包含 Social Network 源代码的集群"
-            log "请确保至少有一个集群（如 kind2）包含 DeathStarBench 源代码"
-            log "或从 GitHub 手动克隆：https://github.com/delimitrou/DeathStarBench"
+            log_error "源代码复制失败"
             exit 1
         fi
     fi
